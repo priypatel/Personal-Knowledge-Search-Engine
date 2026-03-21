@@ -1,42 +1,88 @@
+# Product Requirements Document (PRD)
+
 ## Product Name
 
-Personal Knowledge Search Engine (Document-Only RAG with AI Suggestions)
+Personal Knowledge Search Engine (Document-based RAG)
 
-## Problem Statement
+---
 
-Users have knowledge scattered across personal documents but cannot query them semantically. Keyword search fails. Existing tools are generic and not tailored to personal datasets.
+## Objective
 
-## Goal
+Allow users to upload documents and ask questions.
+System must answer strictly from uploaded documents using semantic search.
 
-Build a **document-first AI system** that:
+---
 
-- Answers questions strictly from uploaded documents (RAG)
-- Generates **dynamic AI-based suggested questions** from document content
+## Core Principle
 
-## Target Users
+- NO general AI answers
+- ALL responses must be grounded in user documents
+- MUST show sources
 
-- Developers
-- Students
-- Researchers
+---
 
-## Core Features
+## Features
 
-- Upload documents (PDF, DOCX, TXT)
-- Semantic search (vector-based)
-- AI-generated answers (RAG only)
-- Source citation (mandatory)
-- Chat interface (single UI)
-- **AI-generated dynamic suggestions (Level 3)**
+### 1. Document Upload
 
-## Out of Scope
+- Accept: PDF, DOCX, TXT
+- Max size: 10MB
+- Show status: uploading → processing → ready
 
-- General AI (no ChatGPT clone behavior)
-- Multi-tenant enterprise features (initially)
+---
+
+### 2. Document Processing
+
+- Extract text
+- Split into chunks (500–800 tokens)
+- Generate embeddings
+- Store in PostgreSQL (pgvector)
+
+---
+
+### 3. Chat Interface
+
+- Single UI (ChatGPT-style)
+- Ask question → get answer
+- Streaming response (optional)
+
+---
+
+### 4. Semantic Search (RAG)
+
+- Convert query → embedding
+- Retrieve top-k chunks (k=5)
+- Pass to LLM (Groq)
+- Return structured answer
+
+---
+
+### 5. Source References (MANDATORY)
+
+Each response must include:
+
+- document name
+- matched chunk
+
+---
+
+### 6. AI Suggestions (Level 3)
+
+- Generated after document upload
+- Based on document summary
+- Stored in DB (not generated on each request)
+
+---
+
+## Non-Goals
+
+- No general chatbot
+- No multi-user system (MVP)
+
+---
 
 ## Success Metrics
 
-- Answer relevance (based on documents)
-- Suggestion quality (context-aware)
-- Response latency (<2–3s)
-
----
+- Answer relevance
+- Response time < 3s
+- Suggestion quality

@@ -1,65 +1,86 @@
-## MVP Scope
+# MVC Technical Document
 
-Core pipeline + AI suggestions:
+## Architecture Pattern
 
-1. File upload
-2. Text extraction
-3. Chunking
-4. Embedding generation
-5. Vector storage
-6. Query + retrieval
-7. AI response (RAG only)
-8. **AI-based suggestion generation (cached)**
-
-## Tech Stack
-
-Frontend:
-
-- React
-- Tailwind
-
-Backend:
-
-- Node.js
-- Express
-
-Databases:
-
-- PostgreSQL (metadata + suggestions)
-- pgvector (PostgreSQL vector extension)
-
-AI:
-
-- Groq (LLM for answers + suggestions)
-
-Queue:
-
-- Redis + BullMQ
-
-Testing:
-
-- **Playwright (E2E testing)**
-- Jest (unit/integration)
-
-## APIs
-
-- POST /upload
-- GET /chat
-- GET /suggestions
-
-## Suggestion Generation Flow (Level 3)
-
-On document upload:
-
-1. Extract text
-2. Generate summary
-3. Send to LLM:
-   → "Generate 3 useful questions based on this document"
-4. Store suggestions in DB
-
-## Constraints
-
-- Max file size: 10MB
-- Suggestions generated once and cached
+Model - View - Controller + Service Layer
 
 ---
+
+## Model Layer (PostgreSQL + pgvector)
+
+### Tables
+
+#### documents
+
+- id (PK)
+- name
+- created_at
+
+#### document_chunks
+
+- id (PK)
+- document_id (FK)
+- content (TEXT)
+- embedding (VECTOR(768))
+
+#### suggestions
+
+- id
+- document_id
+- question
+
+---
+
+## View Layer (React)
+
+### Components
+
+- ChatPage
+- UploadComponent
+- SuggestionsList
+- Sidebar (history)
+
+---
+
+## Controller Layer (Express)
+
+### Routes
+
+POST /upload
+POST /chat
+GET /suggestions
+
+---
+
+## Service Layer (IMPORTANT)
+
+### 1. DocumentService
+
+- extractText()
+- chunkText()
+
+### 2. EmbeddingService
+
+- generateEmbedding(text)
+
+### 3. SearchService
+
+- similaritySearch(vector)
+
+### 4. SuggestionService
+
+- generateSuggestions(summary)
+
+---
+
+## Flow
+
+Request → Controller → Service → DB → Response
+
+---
+
+## Constraints (STRICT)
+
+- Controllers must NOT contain business logic
+- All logic in services
+- DB queries isolated in repository layer

@@ -1,225 +1,226 @@
 # Information Architecture
 
-**Project:** Knowbase — Personal Knowledge Search Engine
-**Version:** 1.0 MVP
-**Date:** March 2026
+## App Name
+
+Knowbase
 
 ---
 
-## 1. Application Structure Overview
-
-Knowbase is a **single-page application (SPA)** with a persistent two-panel shell. The sidebar holds navigation and history; the main content area renders contextual screens based on user state.
+## Top-Level Structure
 
 ```
-App Shell
-├── Sidebar (persistent, 260px, fixed)
-│   ├── Brand Header
-│   │   ├── Logo / Brand Icon
-│   │   └── New Chat Button [+]
-│   ├── Chat Search Bar (filter sessions)
-│   ├── Chat History (scrollable, date-grouped)
-│   │   ├── Group: TODAY
-│   │   │   └── [Chat Item] — title + source count badge
-│   │   ├── Group: YESTERDAY
-│   │   │   └── [Chat Item]
-│   │   └── Group: THIS WEEK
-│   │       └── [Chat Item]
-│   ├── Documents Section
-│   │   └── [Document Item] — name + type badge (PDF/DOCX/TXT)
-│   └── User Profile Footer
-│       ├── Avatar (initials)
-│       └── User Name / Email
-│
-└── Main Content Area (flex-grow, scrollable)
-    ├── Screen: Landing / Empty State
-    ├── Screen: Active Chat View
-    ├── Screen: Login / Register (auth-only, no sidebar)
-    └── Screen: Source Detail Panel (slide-in overlay)
+Knowbase App
+├── App Shell
+│   ├── Sidebar (persistent, 260px)
+│   │   ├── Header
+│   │   │   ├── Brand logo
+│   │   │   └── New Chat button
+│   │   ├── Chat history search bar
+│   │   ├── Chat history list (grouped by date)
+│   │   │   ├── TODAY
+│   │   │   ├── YESTERDAY
+│   │   │   └── THIS WEEK
+│   │   ├── Documents section
+│   │   │   └── Document list (with file type badges)
+│   │   └── User profile footer
+│   │
+│   └── Main Content Area (flex: 1)
+│       ├── Landing State (no active chat)
+│       └── Active Chat View
 ```
 
 ---
 
-## 2. Screen Inventory
+## Screens
 
-| Screen ID | Screen Name | Route | Auth Required | Description |
-|---|---|---|---|---|
-| SCR-001 | Login | `/login` | No | Email + password login form |
-| SCR-002 | Register | `/register` | No | New account creation form |
-| SCR-003 | Landing / Empty Chat | `/` | Yes | Default view; search centered with suggestions |
-| SCR-004 | Active Chat View | `/chat/:chatId` | Yes | Full chat conversation with a document set |
-| SCR-005 | Source Detail Panel | overlay | Yes | Slide-in panel showing original chunk text |
-| SCR-006 | Document Management | `/documents` (future) | Yes | Grid/list view of all uploaded documents |
+### Screen 1 — Landing State (Empty / New Chat)
+
+Shown when no chat is active or user clicks "New Chat".
+
+```
+Layout: Centered vertically and horizontally in main area
+
+Content:
+  1. Brand icon (48px search magnifier)
+  2. Heading: "What do you want to know?"
+  3. Subtitle: "Search across your documents..."
+  4. Search bar (hero, max-width 520px)
+     ├── Text input
+     ├── Upload button
+     ├── File type pills (PDF, DOCX, TXT — informational)
+     └── Send button (disabled when empty)
+  5. Quick suggestion pills (from DB, document-specific)
+  6. Keyboard hint: "Press / to focus search"
+```
+
+Navigation triggers:
+- Typing + Enter → transitions to Active Chat View
+- Clicking suggestion pill → populates search bar + submits
+- Clicking upload button → triggers file picker
 
 ---
 
-## 3. Navigation Flow
+### Screen 2 — Active Chat View
 
-### 3.1 Primary User Flows
-
-```
-[Login/Register]
-      ↓
-[Landing State - SCR-003]
-      ↓ (upload document OR type query)
-      ↓
-[Active Chat View - SCR-004]
-      ↓ (click citation pill)
-      ↓
-[Source Detail Panel - SCR-005 overlay]
-      ↓ (Esc or close)
-      ↑ back to Active Chat
-
-[Sidebar: click history item] ──────→ [Active Chat View - SCR-004]
-[Sidebar: click New Chat   ] ──────→ [Landing State - SCR-003]
-```
-
-### 3.2 Upload Flow (within Active Chat)
+Shown when a conversation is in progress.
 
 ```
-[Input Bar: click Upload]
-      ↓
-[Native File Picker]
-      ↓
-[File appears in input with progress indicator]
-      ↓
-[User sends message / upload]
-      ↓
-[Processing pill shows in chat]
-      ↓
-[Background worker processes document]
-      ↓
-[✓ Ready — document in sidebar + suggestions below input]
+Layout: Full-height flex column
+
+Structure:
+  ├── Chat header
+  │   ├── Conversation title
+  │   └── Source count badge
+  ├── Message area (scrollable)
+  │   ├── [User message bubble]
+  │   ├── [File attachment indicator — if file uploaded]
+  │   ├── [Search status line: "Searched X docs, found Y chunks"]
+  │   ├── [AI response — no bubble, plain text]
+  │   ├── [Citation pills row]
+  │   └── [Action buttons: Copy, View Sources]
+  └── Input bar (pinned bottom)
+      ├── Text input
+      ├── Upload button
+      └── Send button
 ```
 
-### 3.3 Query Flow (RAG)
-
-```
-[User types query + sends]
-      ↓
-[User message bubble appears (optimistic)]
-      ↓
-[Search status line: "Searching X documents..."]
-      ↓
-[AI response streams token-by-token]
-      ↓
-[Citation pills appear below response]
-      ↓
-[Action buttons: Copy, View Sources]
-```
+Navigation triggers:
+- Clicking citation pill → opens Source Detail Panel
+- Clicking "View Sources" → opens Source Detail Panel
+- Clicking "Copy" → copies response to clipboard
+- Sidebar chat item → loads different conversation
 
 ---
 
-## 4. Content Hierarchy
+### Screen 3 — Source Detail Panel (Future)
 
-### 4.1 Sidebar — Chat History
-- Grouped by recency: TODAY → YESTERDAY → THIS WEEK → [older dates]
-- Each item: Chat title (auto-generated) + source count badge
-- Active item: primary blue title, `--bg-secondary` background
-- Overflow: ellipsis on title at 180px max-width
-
-### 4.2 Sidebar — Documents
-- Each document: filename, file type badge (PDF/DOCX/TXT), processing status
-- Sorted: most recently uploaded first
-- Status states: Processing | Ready | Error
-
-### 4.3 Chat Messages — Order & Structure
-Each conversation exchange follows this order:
-1. User message bubble (right-aligned)
-2. File attachment indicator (if file was uploaded)
-3. Search status line
-4. AI response (left-aligned, no bubble)
-5. Citation pills
-6. Action buttons (Copy, View Sources)
-
----
-
-## 5. UI States
-
-### 5.1 Global States
-
-| State | Trigger | Visual |
-|---|---|---|
-| Authenticated | Valid JWT | Full app shell visible |
-| Unauthenticated | No/expired JWT | Redirected to `/login` |
-| Loading | Any async op | Skeleton / spinner |
-| Error | API failure | Error banner or toast |
-| Offline | No network | Persistent banner: "Connection lost. Retrying..." |
-
-### 5.2 Landing State (SCR-003) States
-
-| State | Condition | What's Shown |
-|---|---|---|
-| No documents | No docs uploaded | Default static example suggestions |
-| Documents present | ≥1 doc ready | AI-generated suggestion pills |
-| Processing | File uploaded, processing | "Processing..." pill in suggestion area |
-
-### 5.3 Chat State (SCR-004) States
-
-| Element | Idle | Loading | Error |
-|---|---|---|---|
-| AI Response | Shows message | Pulsing skeleton blocks | Error message inline |
-| Citation Pills | Visible | Hidden until response complete | Hidden |
-| Input Bar | Enabled | Disabled during AI response | Enabled (with retry) |
-
----
-
-## 6. Component Tree (High Level)
+Slide-in panel from the right side, triggered by citation click.
 
 ```
-<App>
-├── <AuthProvider>
-│   ├── <Router>
-│   │   ├── /login        → <LoginPage>
-│   │   ├── /register     → <RegisterPage>
-│   │   └── /*            → <ProtectedLayout>
-│   │       ├── <Sidebar>
-│   │       │   ├── <SidebarHeader> (logo + NewChatButton)
-│   │       │   ├── <ChatSearchBar>
-│   │       │   ├── <ChatHistoryList>
-│   │       │   │   └── <ChatHistoryItem> (× N)
-│   │       │   ├── <DocumentList>
-│   │       │   │   └── <DocumentItem> (× N)
-│   │       │   └── <UserProfile>
-│   │       └── <MainContent>
-│   │           ├── <LandingView> (empty state)
-│   │           │   ├── <BrandIcon>
-│   │           │   ├── <SearchBar>
-│   │           │   └── <SuggestionPills>
-│   │           ├── <ChatView> (active chat)
-│   │           │   ├── <ChatHeader>
-│   │           │   ├── <MessageList>
-│   │           │   │   └── <MessageGroup> (× N)
-│   │           │   │       ├── <UserMessageBubble>
-│   │           │   │       ├── <FileAttachmentIndicator>
-│   │           │   │       ├── <SearchStatusLine>
-│   │           │   │       ├── <AIResponse>
-│   │           │   │       ├── <CitationPills>
-│   │           │   │       └── <ActionButtons>
-│   │           │   └── <InputBar>
-│   │           └── <SourceDetailPanel> (overlay, conditional)
+Content:
+  ├── Document name + page/chunk number
+  ├── Highlighted text chunk (original content)
+  ├── Relevance score indicator
+  ├── "Open full document" link
+  └── Previous / Next chunk navigation
 ```
 
 ---
 
-## 7. URL Structure
+### Screen 4 — Document Management (Future)
 
-| Route | Component | Auth | Notes |
-|---|---|---|---|
-| `/login` | `<LoginPage>` | Public | Redirect to `/` if authenticated |
-| `/register` | `<RegisterPage>` | Public | Redirect to `/` if authenticated |
-| `/` | `<LandingView>` | Protected | Default app entry |
-| `/chat/:chatId` | `<ChatView>` | Protected | Load chat by ID |
-| `/documents` | `<DocumentsPage>` | Protected | Future screen |
+Grid or list view of all uploaded documents.
+
+```
+Content:
+  ├── Drag-and-drop upload zone (top)
+  ├── Search/filter bar
+  └── Document cards
+      ├── File name
+      ├── File type badge
+      ├── Upload date
+      ├── Chunk count
+      ├── File size
+      ├── Delete action (with confirmation modal)
+      └── Re-process action
+```
 
 ---
 
-## 8. Data Flow Summary
+## Navigation Model
 
-| User Action | Frontend Event | API Call | State Update |
-|---|---|---|---|
-| Upload file | Select file → send | `POST /api/upload` | Add to document list with "Processing" status |
-| Send query | Enter/click send | `POST /api/chat` | Add user message; poll for AI response |
-| Click suggestion | Auto-populate + send | `POST /api/chat` | Same as send query |
-| Click citation | Open panel | `GET /api/chunks/:id` | Show chunk in overlay |
-| Start new chat | Click + / Ctrl+N | (local state reset) | Clear main content, deselect history item |
-| Navigate history | Click chat item | `GET /api/chat/:chatId` | Load previous chat messages |
+| Action                  | Result                                    |
+| ----------------------- | ----------------------------------------- |
+| Click "New Chat"        | Clear main area → Landing State           |
+| Submit query            | Main area → Active Chat View              |
+| Click sidebar chat item | Load that conversation in main area       |
+| Click citation pill     | Open Source Detail Panel (slide-in right) |
+| Press Esc               | Close panel / blur input                  |
+| Press /                 | Focus search bar                          |
+| Press Ctrl+N            | New chat                                  |
+| Press Ctrl+K            | Focus sidebar search                      |
+
+---
+
+## Content Taxonomy
+
+### Document
+- id
+- name
+- file type (PDF / DOCX / TXT)
+- upload date
+- processing status (uploading / processing / ready / failed)
+
+### Chunk
+- id
+- parent document
+- text content
+- vector embedding
+
+### Suggestion
+- id
+- parent document
+- question text
+
+### Chat / Conversation
+- id
+- title (derived from first message)
+- date created
+- messages[]
+
+### Message
+- id
+- role (user / assistant)
+- content text
+- sources[] (citation references)
+- timestamp
+
+---
+
+## Component Hierarchy
+
+```
+App
+└── AppShell
+    ├── Sidebar
+    │   ├── SidebarHeader
+    │   │   ├── BrandLogo
+    │   │   └── NewChatButton
+    │   ├── ChatHistorySearch
+    │   ├── ChatHistoryList
+    │   │   └── ChatHistoryItem (×n)
+    │   ├── DocumentList
+    │   │   └── DocumentItem (×n) + FileTypeBadge
+    │   └── UserProfile + Avatar
+    │
+    └── MainContent
+        ├── LandingView
+        │   ├── SearchBar
+        │   │   ├── TextInput
+        │   │   ├── UploadButton
+        │   │   ├── FileTypePills
+        │   │   └── SendButton
+        │   └── SuggestionPills (×n)
+        │
+        └── ChatView
+            ├── ChatHeader
+            ├── MessageArea
+            │   └── MessageGroup (×n)
+            │       ├── MessageBubble (user)
+            │       ├── FileAttachmentIndicator
+            │       ├── SearchStatus
+            │       ├── AIResponse
+            │       ├── CitationPills (×n)
+            │       └── ActionButtons
+            └── InputBar (SearchBar variant)
+```
+
+---
+
+## Responsive Breakpoints
+
+| Breakpoint | Layout                                              |
+| ---------- | --------------------------------------------------- |
+| >= 1024px  | Full layout: 260px sidebar + flex-grow main area    |
+| 768-1023px | Sidebar collapses to 40px icon-only strip           |
+| < 768px    | Sidebar as slide-over drawer; main area full-width  |

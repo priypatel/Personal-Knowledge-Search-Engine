@@ -1,76 +1,68 @@
+# System Design Document
+
 ## High-Level Components
 
-1. API Server
-2. Worker Service
-3. Vector Store (pgvector — PostgreSQL extension)
-4. Relational Database (PostgreSQL)
-5. Redis Queue
+1. Frontend (React)
+2. Backend (Node.js + Express)
+3. PostgreSQL (pgvector)
+4. LLM (Groq)
 
 ---
 
 ## Upload Flow
 
 User uploads file
-→ API
-→ Queue (Redis)
-→ Worker
-→ Text extraction
-→ Chunking
-→ Embeddings
-→ Store in pgvector (PostgreSQL)
+→ API receives
+→ Extract text
+→ Chunk text
+→ Generate embeddings
+→ Store in DB
 → Generate summary
-→ LLM generates suggestions
-→ Store in PostgreSQL
+→ Generate suggestions
+→ Store suggestions
 
 ---
 
 ## Query Flow (RAG ONLY)
 
 User query
-→ API
 → Convert to embedding
-→ Vector search (pgvector)
+→ Query pgvector
 → Retrieve top-k chunks
-→ Send to LLM (Groq)
+→ Send to LLM
 → Return answer + sources
 
 ---
 
-## Suggestions Flow
+## Suggestion Flow
 
-Frontend loads page
-→ API fetches suggestions
-→ Suggestions shown below input
-→ On click → auto-send query
+After upload:
+
+- generate summary
+- send to LLM
+- get 3 questions
+- store in DB
 
 ---
 
-## Scalability
+## Performance Design
 
-- Stateless API
-- Horizontal worker scaling
-- Cached suggestions (avoid recompute)
+- Use index on embedding
+- Limit k=5
+- Cache suggestions
 
 ---
 
 ## Failure Handling
 
-- Retry jobs (BullMQ)
-- Fallback if suggestion generation fails
-- Graceful message if no documents
+- Empty document → reject
+- No match → return “No relevant data found”
+- LLM failure → retry once
 
 ---
 
-## Storage Design
+## Scaling Strategy
 
-PostgreSQL:
-
-- users
-- documents
-- suggestions
-
-pgvector (PostgreSQL extension):
-
-- embeddings (stored in documents_embeddings table)
-
----
+- Stateless backend
+- DB indexing
+- Horizontal API scaling (future)

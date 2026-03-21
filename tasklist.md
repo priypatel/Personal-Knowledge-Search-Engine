@@ -1,338 +1,182 @@
-# Task List — Knowbase MVP
+# Task List
 
-**Project:** Knowbase — Personal Knowledge Search Engine
-**Version:** 1.0 MVP
-**Date:** March 2026
-**Format:** Ordered by development phase, checkable when complete.
+## Phase 1 — Foundation & Infrastructure
 
----
+### Database
+- [ ] Start PostgreSQL locally via Docker (use `ankane/pgvector` image)
+- [ ] Create `knowbase` database
+- [ ] Enable pgvector extension
+- [ ] Create `documents` table
+- [ ] Create `document_chunks` table with `VECTOR(768)` column
+- [ ] Create `suggestions` table
+- [ ] Add ivfflat index on `document_chunks.embedding`
+- [ ] Add indexes on `document_id` FK columns
 
-## Phase 0: Foundation & Tooling
-
-### Monorepo Setup
-- [ ] Initialize git repository with `main` branch
-- [ ] Set up Turborepo + npm workspaces at root
-- [ ] Create `packages/` directory with `web/`, `api/`, `worker/`, `shared/` sub-packages
-- [ ] Configure root `package.json` with workspace definitions and shared scripts
-- [ ] Configure `turbo.json` pipeline (dev, build, test, lint)
-
-### TypeScript & Tooling
-- [ ] Create `tsconfig.base.json` at root (strict mode)
-- [ ] Extend `tsconfig.base.json` in each package
-- [ ] Set up ESLint with TypeScript plugin at root (shared config)
-- [ ] Set up Prettier at root (shared config)
-- [ ] Add `.eslintignore` and `.prettierignore` files
-
-### Environment
-- [ ] Create `.env.example` with all variables documented (see envierment.md)
-- [ ] Add `.env.local`, `.env.test`, `uploads/` to `.gitignore`
-- [ ] Create `docker/docker-compose.yml` with `pgvector/pgvector:pg16` (PostgreSQL + pgvector), redis, api, worker, web services
-- [ ] Verify Docker Compose: `docker compose up postgres redis -d` works
-
-### CI/CD
-- [ ] Create `.github/workflows/ci.yml` (lint + unit/integration tests + E2E)
-- [ ] Add branch protection to `main` (require PR + passing CI)
-
-### Shared Package
-- [ ] Initialize `packages/shared` package
-- [ ] Create shared types: `user.ts`, `document.ts`, `chat.ts`, `suggestion.ts`, `api.ts`
-- [ ] Export all types from `packages/shared/src/index.ts`
-
----
-
-## Phase 5: Authentication (Parallel with Phase 1)
-
-### Backend — Auth
-- [ ] Create `users` table migration
-- [ ] Build `POST /api/auth/register` endpoint
-  - [ ] Validate: email format, password ≥ 8 chars
-  - [ ] Hash password with bcrypt (10 rounds)
-  - [ ] Return 409 if email already exists
-  - [ ] Issue JWT on success
-- [ ] Build `POST /api/auth/login` endpoint
-  - [ ] Compare bcrypt hash
-  - [ ] Return 401 on mismatch (generic message only)
-  - [ ] Issue JWT on success
-- [ ] Create `auth.middleware.ts` for JWT verification
-  - [ ] Attach `req.user` on success
-  - [ ] Return 401 if token missing or invalid
-- [ ] Create admin seed script `seeds/01_admin_user.js`
-  - [ ] Seeds admin from `ADMIN_EMAIL`, `ADMIN_PASSWORD` env vars
-  - [ ] Verify admin cannot be created via UI
-- [ ] Add rate limiting on auth routes (10/min per IP)
-
-### Frontend — Auth
-- [ ] Create `LoginPage.tsx` with Formik + Yup validation
-- [ ] Create `RegisterPage.tsx` with Formik + Yup validation
-- [ ] Create `useAuth.ts` hook (login, register, logout, user state)
-- [ ] Create `<ProtectedRoute>` wrapper component
-- [ ] Add React Router routes: `/login`, `/register`, `/*` (protected)
-- [ ] Store JWT in localStorage (or HTTP-only cookie)
-- [ ] Auto-redirect to `/login` on 401 API response
-
-### Auth Tests
-- [ ] Unit: `authService.test.ts` (hash, JWT issue, JWT verify)
-- [ ] Integration: register + login scenarios (see testing.strategy.md)
-
----
-
-## Phase 1: Core Backend Pipeline
-
-### Database Migrations
-- [ ] Migration: `enable_pgvector` extension (`CREATE EXTENSION IF NOT EXISTS vector`)
-- [ ] Migration: `create_users_table`
-- [ ] Migration: `create_documents_table`
-- [ ] Migration: `create_document_embeddings_table` (with `vector(1536)` column + HNSW index)
-- [ ] Migration: `create_suggestions_table`
-- [ ] Migration: `create_chat_sessions_table`
-- [ ] Migration: `create_chat_messages_table`
-- [ ] Migration: `create_message_citations_table`
-- [ ] Verify all migrations run cleanly: `npx knex migrate:latest`
-- [ ] Verify rollback works: `npx knex migrate:rollback`
-
-### Upload API
-- [ ] Install and configure Multer middleware
-- [ ] Create `POST /api/upload` route
-  - [ ] Validate MIME type + file extension (PDF/DOCX/TXT allowlist)
-  - [ ] Validate file size ≤ 10MB
-  - [ ] Save file to `uploads/{userId}/{documentId}/{filename}`
-  - [ ] Sanitize filename (no path traversal)
-  - [ ] Insert document record in PostgreSQL (status: 'processing')
-  - [ ] Enqueue BullMQ job with `{ documentId, filePath, userId }`
-  - [ ] Return 202 Accepted with `{ documentId }`
-- [ ] Create `GET /api/documents` (list user's documents)
-- [ ] Create `GET /api/documents/:id/status` (poll status)
-- [ ] Create `DELETE /api/documents/:id` (delete + cascade embeddings)
-
-### Document Processing Worker
-- [ ] Initialize BullMQ worker consuming `document-processing` queue
-- [ ] Implement `extractText.ts`:
-  - [ ] PDF extraction (pdf-parse)
-  - [ ] DOCX extraction (mammoth)
-  - [ ] TXT extraction (native fs.readFile)
-- [ ] Implement `chunkText.ts`:
-  - [ ] ~500 token chunks with 50-token overlap
-  - [ ] Sentence-aware splitting
-  - [ ] Discard chunks < 100 tokens
-- [ ] Implement `generateEmbeddings.ts`:
-  - [ ] Call Groq embedding endpoint per chunk
-  - [ ] Return 1536-dimension float32 vectors
-  - [ ] Retry once on timeout
-- [ ] Implement `storeEmbeddings.ts`:
-  - [ ] INSERT each chunk into `document_embeddings` table (pgvector)
-  - [ ] Include full payload: document_id, user_id, chunk_index, chunk_text, filename, page_ref
-- [ ] Update document status to 'ready' on completion
-- [ ] Update document status to 'error' + `error_msg` on failure
-- [ ] Configure retry: 3 attempts, exponential backoff
-
-### Worker Tests
-- [ ] Unit: `chunkText.test.ts` (sizes, overlap, edge cases)
-- [ ] Unit: `extractText.test.ts` (PDF/DOCX/TXT output)
-- [ ] Unit: `generateEmbeddings.test.ts` (mock Groq, return shape)
-
-### Upload Integration Tests
-- [ ] Integration: `POST /api/upload` (valid + invalid file types, size limit)
-- [ ] Integration: `GET /api/documents` (user scoping)
-- [ ] Integration: `GET /api/documents/:id/status`
-
----
-
-## Phase 2: RAG Query Engine
-
-### Query & Retrieval
-- [ ] Implement query embedding generation (Groq)
-- [ ] Implement pgvector search service (`vectorSearch.service.ts`):
-  - [ ] Cosine distance query using `<=>` operator
-  - [ ] `user_id` filter on every search (user-scoped)
-  - [ ] Score threshold: 0.70 (cosine similarity)
-  - [ ] Top-K: 5 (configurable)
-- [ ] Implement relevance scoring + re-ranking:
-  - [ ] Composite score = 0.8 × cosine + 0.2 × recency
-  - [ ] De-duplication of near-duplicate chunks
-- [ ] Implement context assembly:
-  - [ ] Label each chunk: `[Source N: filename, page_ref]`
-  - [ ] Enforce max 6,000 token context window
-  - [ ] Truncate lowest-scoring chunks if over limit
-
-### LLM & Response
-- [ ] Create Groq chat service (strict RAG prompt template)
-- [ ] Implement SSE streaming response from Groq → frontend
-- [ ] Handle "no documents" case (return 400, skip LLM)
-- [ ] Handle "no chunks pass threshold" case (fallback message, skip LLM)
-
-### Chat Session Management
-- [ ] Create `POST /api/chat` endpoint
-- [ ] Create `GET /api/chat/sessions` endpoint
-- [ ] Create `GET /api/chat/sessions/:id` endpoint
-- [ ] Create `DELETE /api/chat/sessions/:id` endpoint
-- [ ] Create `GET /api/chunks/:embeddingId` endpoint (for citation panel)
-- [ ] Save chat messages and citations to PostgreSQL after each response
-
-### Chat Tests
-- [ ] Unit: `chatService.test.ts` (scoring, context assembly, prompt format)
-- [ ] Unit: `vectorSearch.test.ts` (pgvector query formation, filtering)
-- [ ] Integration: `POST /api/chat` (happy path, no-docs, no-results)
-- [ ] Integration: `GET /api/chat/sessions`
-
----
-
-## Phase 3: Frontend — Core UI
-
-### Design System
-- [ ] Implement `styles/tokens.css` (all CSS custom properties from UIDesign.md)
-- [ ] Configure Tailwind with token extensions
-- [ ] Add Inter + JetBrains Mono from Google Fonts
-- [ ] Verify dark mode token values are set
-
-### App Shell & Layout
-- [ ] Create `App.tsx` with provider wrappers
-- [ ] Create `router.tsx` with all routes
-- [ ] Create `ProtectedLayout.tsx` (sidebar + main content area)
-- [ ] Implement sidebar: 260px fixed, scrollable content
-- [ ] Implement responsive breakpoints (768px, 1024px+)
-
-### Sidebar Components
-- [ ] `Sidebar.tsx` (full container)
-- [ ] `SidebarHeader.tsx` (brand logo + new chat button)
-- [ ] `ChatHistoryItem.tsx` (title + source count badge, states)
-- [ ] `ChatHistoryList.tsx` (date-grouped: TODAY/YESTERDAY/THIS WEEK)
-- [ ] `DocumentList.tsx` (filename + file type badge + status)
-- [ ] `UserProfile.tsx` (avatar initials + user name)
-
-### Landing Screen (`/`)
-- [ ] `LandingView.tsx` (centered layout)
-- [ ] Brand icon (48px SVG)
-- [ ] Heading: "What do you want to know?"
-- [ ] Subtitle text
-- [ ] `SearchBar.tsx` (upload button, file type pills, send button)
-- [ ] `SuggestionPills.tsx` (static placeholders initially)
-- [ ] Keyboard hint at bottom: "Press / to focus search"
-
-### Chat Screen (`/chat/:chatId`)
-- [ ] `ChatView.tsx` (full-height flex column)
-- [ ] `ChatHeader.tsx` (title + source count badge)
-- [ ] `MessageBubble.tsx` (user message, right-aligned, primary blue)
-- [ ] `FileAttachmentIndicator.tsx` (below user bubble on upload)
-- [ ] `SearchStatus.tsx` (animated, "Searching X documents...")
-- [ ] `AIResponse.tsx` (left-aligned, no bubble, token streaming)
-- [ ] `CitationPill.tsx` (blue vs. teal color logic)
-- [ ] `ActionButtons.tsx` (Copy, View Sources — max 3)
-- [ ] Skeleton loading states (pulsing blocks)
-
-### Source Detail Panel
-- [ ] `SourceDetailPanel.tsx` (slide-in from right, 250ms ease-out)
-- [ ] Chunk text display
-- [ ] Document name + page ref at top
-- [ ] Previous/next chunk navigation
-- [ ] Relevance score indicator
-- [ ] Dismiss: Esc key + close button
-
-### Shared Components
-- [ ] `Toast.tsx` (top-right, auto-dismiss 5s)
-- [ ] `Badge.tsx` (file type: PDF/DOCX/TXT)
-- [ ] `Avatar.tsx` (initials circle)
-- [ ] `IconButton.tsx` (standardized 28×28 icon button)
-
-### Hooks & API Integration
-- [ ] `api/client.ts` (Axios instance + JWT header injection + 401 interceptor)
-- [ ] `useUpload.ts` (upload + status polling)
-- [ ] `useChat.ts` (query, SSE stream, citation parsing)
-- [ ] `useSearch.ts` (search bar state, keyboard shortcuts)
-
-### All Error & Empty States
-- [ ] Upload fails → red-tinted indicator + "Retry"
-- [ ] No results found → inline message in chat
-- [ ] Processing error → toast notification
-- [ ] Network error → persistent banner
-- [ ] No chats → "No conversations yet" in sidebar
-- [ ] No documents → upload-centric empty state in doc list
-- [ ] No search results → inline "Nothing found" message
-
-### Keyboard Shortcuts
-- [ ] `/` → focus search bar
-- [ ] `Ctrl + N` → new chat
-- [ ] `Ctrl + K` → search chat history
-- [ ] `Enter` → send message
-- [ ] `Shift + Enter` → newline in input
-- [ ] `Esc` → close source panel / blur input
-
----
-
-## Phase 4: AI Suggestions (Level 3)
-
-### Worker
-- [ ] Implement `generateSummary.ts` (Groq: summarize first 3 chunks)
-- [ ] Implement `generateSuggestions.ts` (Groq: generate 3 questions from summary)
-- [ ] Parse JSON array from LLM response
-- [ ] Store 3 suggestions in PostgreSQL
-- [ ] Set `suggestion_status: 'failed'` on document if generation fails
-- [ ] Use static fallback suggestions on failure
-
-### API
-- [ ] Cache suggestions in Redis on first DB query (TTL 24h)
-- [ ] `GET /api/suggestions` (with Redis-first, DB-fallback logic)
+### Backend
+- [ ] Initialize `server/` — `npm init`, install Express, dotenv, pg, cors, multer
+- [ ] Create `server/.env` with `DATABASE_URL`, `GROQ_API_KEY`, `PORT`
+- [ ] Create `server/src/config/db.js` — pg connection pool
+- [ ] Create `server/src/config/env.js` — validate required env vars at startup
+- [ ] Create `server/src/app.js` — Express app, JSON + cors middleware
+- [ ] Create `server/src/server.js` — start HTTP server
+- [ ] Create `server/src/middlewares/error.middleware.js` — global error handler
+- [ ] Create `server/src/utils/logger.js`
+- [ ] Confirm server starts and DB connection succeeds
 
 ### Frontend
-- [ ] Update `SuggestionPills.tsx` to fetch real suggestions
-- [ ] Show AI suggestions after document processing completes
-- [ ] Clicking a suggestion auto-populates + auto-sends the query
-
-### Suggestion Tests
-- [ ] Unit: `generateSummary.test.ts` (mock Groq, verify prompt)
-- [ ] Unit: `generateSuggestions.test.ts` (JSON parse, fallback on failure)
-- [ ] Integration: `GET /api/suggestions` (cache hit + miss)
-
----
-
-## Phase 6: Testing & QA
-
-### Coverage Pass
-- [ ] Run `npm run test -- --coverage` across all packages
-- [ ] Assert ≥ 80% line coverage on `api` and `worker`
-- [ ] Fix any coverage gaps that block threshold
-
-### E2E Playwright Tests
-- [ ] Write `e2e/auth.spec.ts` (Scenario 1: register → empty state)
-- [ ] Write `e2e/upload.spec.ts` (Scenarios 2, 6, 7)
-- [ ] Write `e2e/chat.spec.ts` (Scenarios 3, 4, 5, 8)
-- [ ] Write `e2e/suggestions.spec.ts` (from Scenario 3)
-- [ ] Run all 8 scenarios: `npm run test:e2e`
-- [ ] All 8 scenarios pass locally
-
-### Final QA Checklist
-- [ ] All API endpoints return expected responses in Postman/Thunder Client
-- [ ] Dark mode tokens render correctly
-- [ ] Accessibility: visible focus rings on all interactive elements
-- [ ] Accessibility: `role="log"` + `aria-live="polite"` on chat area
-- [ ] Accessibility: all icons have `aria-label`
-- [ ] No `console.error` in browser during normal use
-- [ ] No `any` TypeScript types without explanatory comment
+- [ ] Initialize `client/` — Vite + React + TypeScript
+- [ ] Install Tailwind CSS, Axios, React Router v6, Lucide React
+- [ ] Create `client/.env` with `VITE_API_BASE_URL`
+- [ ] Create `src/styles/tokens.css` — all CSS custom properties from UIDesign.md
+- [ ] Scaffold `App.jsx` with router
+- [ ] Create `src/services/api.js` — Axios instance with base URL
+- [ ] Confirm frontend starts without errors
 
 ---
 
-## Phase 7: Deployment
+## Phase 2 — Upload & Processing Pipeline
 
-### Infrastructure
-- [ ] Provision managed PostgreSQL with pgvector support (Neon / Supabase / Railway)
-- [ ] Verify pgvector extension is available on production PostgreSQL
-- [ ] Provision managed Redis (Upstash / Railway)
+### Backend
+- [ ] Install pdf-parse, mammoth, sentence-transformers (or @xenova/transformers)
+- [ ] Implement `server/src/utils/chunking.js`
+  - [ ] Split text into 500–800 token chunks
+  - [ ] Implement overlap between chunks
+- [ ] Implement `server/src/services/document.service.js`
+  - [ ] `extractText(file, mimeType)` — dispatch to pdf-parse / mammoth / fs
+  - [ ] `chunkText(text)` — call chunking util
+- [ ] Implement `server/src/services/embedding.service.js`
+  - [ ] `generateEmbedding(text)` — return 768-dim float array
+- [ ] Implement `server/src/services/suggestion.service.js`
+  - [ ] `generateSuggestions(summary)` — call Groq, return 3 questions
+- [ ] Implement `server/src/repositories/document.repository.js`
+  - [ ] `insertDocument(name, fileType, fileSize)`
+  - [ ] `insertChunk(documentId, content, chunkIndex, embedding)`
+  - [ ] `insertSuggestion(documentId, question)`
+  - [ ] `updateDocumentStatus(id, status)`
+  - [ ] `getChunksByDocumentId(documentId)`
+  - [ ] `getSuggestionsByDocumentId(documentId)`
+- [ ] Implement `server/src/controllers/upload.controller.js`
+  - [ ] Validate file present, type, size
+  - [ ] Delegate to services
+  - [ ] Return `{ documentId, name, status, chunkCount, suggestions[] }`
+- [ ] Create `server/src/routes/upload.routes.js` — `POST /api/upload`
+- [ ] Wire routes into `app.js`
+
+### Backend Tests
+- [ ] Unit test: `chunking.js` — chunk sizes, overlap, edge cases
+- [ ] Unit test: `document.service.js` — text extraction mocked
+- [ ] Unit test: `embedding.service.js` — mock model, assert 768-dim output
+- [ ] Integration test: `POST /api/upload` — happy path + all error cases
+
+### Frontend
+- [ ] Build `Upload/Upload.jsx`
+  - [ ] Click-to-upload button
+  - [ ] Drag-and-drop zone
+  - [ ] File type and size validation (client-side)
+  - [ ] Status indicator: uploading → processing → ready / failed
+- [ ] Wire `Upload.jsx` to `POST /api/upload` via `services/api.js`
+- [ ] Write `Upload.test.jsx`
+
+---
+
+## Phase 3 — RAG Query Pipeline
+
+### Backend
+- [ ] Implement `server/src/services/search.service.js`
+  - [ ] `similaritySearch(queryVector)` — pgvector top-5 cosine search
+- [ ] Implement `server/src/controllers/chat.controller.js`
+  - [ ] Validate query present + non-empty
+  - [ ] Call embedding service on query
+  - [ ] Call search service
+  - [ ] Build LLM prompt with system + context + user
+  - [ ] Call Groq API
+  - [ ] Return `{ answer, sources[] }`
+  - [ ] Handle no-match → `"No relevant data found"`
+  - [ ] Handle Groq failure → retry once → 503
+- [ ] Create `server/src/routes/chat.routes.js` — `POST /api/chat`
+- [ ] Implement `server/src/controllers/suggestion.controller.js`
+- [ ] Create `server/src/routes/suggestion.routes.js` — `GET /api/suggestions`
+- [ ] Wire all routes into `app.js`
+
+### Backend Tests
+- [ ] Unit test: `search.service.js` — mock DB, assert top-5 returned
+- [ ] Unit test: `suggestion.service.js` — mock Groq, assert 3 questions
+- [ ] Integration test: `POST /api/chat` — valid query, missing query, no match
+- [ ] Integration test: `GET /api/suggestions` — valid id, missing id, not found
+
+### Frontend
+- [ ] Build `Chat/Chat.jsx`
+  - [ ] Landing state: centered search bar + suggestion pills
+  - [ ] Active state: scrollable thread + pinned input bar
+  - [ ] Render user message bubble immediately (optimistic)
+  - [ ] Show search status indicator
+  - [ ] Render AI response (plain text, no bubble)
+  - [ ] Render citation pills below AI response
+  - [ ] Action buttons: Copy, View Sources
+- [ ] Build `Suggestions/Suggestions.jsx`
+  - [ ] Fetch suggestions via `GET /api/suggestions`
+  - [ ] Render suggestion pills
+  - [ ] Click → populate search bar
+- [ ] Build `pages/ChatPage.jsx` — compose chat layout
+- [ ] Wire to API via `services/api.js`
+- [ ] Write `Chat.test.jsx`, `Suggestions.test.jsx`, `ChatPage.test.jsx`
+
+---
+
+## Phase 4 — Sidebar, Polish & E2E
+
+### Frontend
+- [ ] Build `Sidebar/Sidebar.jsx`
+  - [ ] Chat history list grouped by date (TODAY / YESTERDAY / THIS WEEK)
+  - [ ] Document list with file type badges
+  - [ ] New chat button
+  - [ ] Chat history search bar
+  - [ ] User profile footer with avatar
+  - [ ] Empty states for no chats and no documents
+- [ ] Implement keyboard shortcuts
+  - [ ] `/` → focus search bar
+  - [ ] `Ctrl+N` → new chat
+  - [ ] `Ctrl+K` → focus sidebar search
+  - [ ] `Esc` → blur input / close panel
+- [ ] Implement error states
+  - [ ] Upload failure: red indicator + retry
+  - [ ] No results: inline message
+  - [ ] Processing error: toast (top-right, 5s auto-dismiss)
+  - [ ] Network error: persistent banner
+- [ ] Implement loading skeleton for AI response
+- [ ] Implement responsive layout
+  - [ ] ≥ 1024px: full sidebar + main
+  - [ ] 768–1023px: icon-only collapsed sidebar
+  - [ ] < 768px: slide-over drawer
+- [ ] Write `Sidebar.test.jsx`
+
+### E2E Tests (Playwright)
+- [ ] `upload.spec.js` — full upload flow with status transitions
+- [ ] `suggestions.spec.js` — suggestions appear + click → search bar populated
+- [ ] `chat.spec.js` — query → AI response + citation pills
+- [ ] `chat.spec.js` — no match scenario
+- [ ] `upload.spec.js` — error handling (bad type, size limit)
+- [ ] `chat.spec.js` — keyboard navigation
 
 ### Deployment
-- [ ] Deploy API server (Railway / Fly.io / Render)
-- [ ] Deploy Worker service
-- [ ] Deploy Frontend (Vercel / Netlify)
-- [ ] Set all production environment variables in deploy platform
-- [ ] Run `knex migrate:latest` on production DB (enables pgvector + creates all tables)
-- [ ] Run `knex seed:run` (creates admin user in production)
+- [ ] Create Neon project, enable pgvector, run schema migrations
+- [ ] Deploy backend to Render, set all env vars
+- [ ] Deploy frontend to Vercel, set `VITE_API_BASE_URL`
+- [ ] Smoke test: upload document in production
+- [ ] Smoke test: query in production
+- [ ] Smoke test: suggestions in production
 
-### Smoke Testing
-- [ ] Health check at `/api/health` returns `status: ok` with `pgvector: enabled`
-- [ ] Register a new user on production URL
-- [ ] Upload a PDF on production URL
-- [ ] Run all 8 Playwright scenarios against production URL
-- [ ] Verify CORS is set to production frontend URL only
+---
 
-### Documentation
-- [ ] Update `README.md` with full setup, run, and deploy instructions
-- [ ] Review and finalize all documentation files
-- [ ] Tag `v1.0.0` release in git
+## Completion Checklist
+
+Before marking MVP complete:
+
+- [ ] All unit tests passing
+- [ ] All integration tests passing
+- [ ] All component tests passing
+- [ ] All E2E scenarios passing
+- [ ] No hardcoded secrets anywhere
+- [ ] All `.env.example` files created
+- [ ] Production deployment fully functional
+- [ ] API contract matches implementation

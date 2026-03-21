@@ -1,248 +1,201 @@
 # Environment Configuration
 
-**Project:** Knowbase — Personal Knowledge Search Engine
-**Version:** 1.0 MVP
-**Date:** March 2026
+## Overview
+
+The project uses two separate environment files:
+- `client/.env` — frontend environment variables (Vite)
+- `server/.env` — backend environment variables (Node.js)
+
+**Rule:** Never hardcode secrets or configuration values. All environment-specific values must come from these files.
 
 ---
 
-## 1. Overview
+## Server Environment Variables
 
-Environment configuration is managed via `.env` files per environment. All environment variables must be defined in `.env.example` with placeholder values. Never commit actual secrets to git.
+### `server/.env`
 
----
+```env
+# Database
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/knowbase
 
-## 2. Environment Files
+# AI / LLM
+GROQ_API_KEY=your_groq_api_key_here
 
-| File | Environment | Committed? |
-|---|---|---|
-| `.env.example` | Template for all envs | ✅ Yes |
-| `.env.local` | Local development | ❌ No (.gitignore) |
-| `.env.test` | Test/CI environment | ❌ No (injected via CI secrets) |
-| `.env.production` | Production | ❌ No (injected via deploy platform) |
-
----
-
-## 3. Complete `.env.example`
-
-```dotenv
-# ═══════════════════════════════════════════════════
-# KNOWBASE — Environment Variables Template
-# Copy this file to .env.local and fill in values
-# NEVER commit .env.local or real secrets to git
-# ═══════════════════════════════════════════════════
-
-# ────────────────────────────────────────────────────
-# APPLICATION
-# ────────────────────────────────────────────────────
-NODE_ENV=development                   # development | test | production
-APP_PORT=3001                          # API server port
-WORKER_CONCURRENCY=2                   # Number of concurrent BullMQ workers
-
-# ────────────────────────────────────────────────────
-# JWT AUTHENTICATION
-# ────────────────────────────────────────────────────
-JWT_SECRET=your-super-secret-key-here  # Min 32 chars; use a random string in prod
-JWT_EXPIRES_IN=7d                      # Token expiry (e.g. 7d, 24h, 30d)
-
-# ────────────────────────────────────────────────────
-# DATABASE — PostgreSQL + pgvector
-# ────────────────────────────────────────────────────
-DATABASE_URL=postgresql://knowbase:knowbase_dev@localhost:5432/knowbase
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=knowbase
-DB_USER=knowbase
-DB_PASSWORD=knowbase_dev
-
-# Test database (separate DB for Jest integration tests)
-TEST_DATABASE_URL=postgresql://knowbase:knowbase_dev@localhost:5432/knowbase_test
-
-# ────────────────────────────────────────────────────
-# REDIS
-# ────────────────────────────────────────────────────
-REDIS_URL=redis://localhost:6379
-REDIS_HOST=localhost
-REDIS_PORT=6379
-REDIS_PASSWORD=                        # Leave empty for local dev without auth
-
-# ────────────────────────────────────────────────────
-# GROQ AI (LLM + Embeddings)
-# ────────────────────────────────────────────────────
-GROQ_API_KEY=gsk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-GROQ_LLM_MODEL=llama3-8b-8192         # Options: llama3-8b-8192 | mixtral-8x7b-32768
-GROQ_EMBEDDING_MODEL=                  # Set if Groq exposes standalone embedding endpoint
-
-# ────────────────────────────────────────────────────
-# FILE UPLOAD
-# ────────────────────────────────────────────────────
-UPLOAD_DIR=./uploads                   # Relative to packages/api root
-MAX_FILE_SIZE_BYTES=10485760           # 10MB = 10 * 1024 * 1024
-ALLOWED_FILE_TYPES=pdf,docx,txt
-
-# ────────────────────────────────────────────────────
-# RAG / SCORING ENGINE
-# ────────────────────────────────────────────────────
-RAG_TOP_K=5                            # Top-K chunks to retrieve per query
-RAG_SCORE_THRESHOLD=0.70               # Minimum cosine similarity score
-RAG_MAX_CONTEXT_TOKENS=6000            # Max tokens to send to LLM as context
-CHUNK_SIZE_TOKENS=500                  # Target chunk size in tokens
-CHUNK_OVERLAP_TOKENS=50               # Overlap between consecutive chunks
-
-# ────────────────────────────────────────────────────
-# pgvector HNSW Index Settings
-# ────────────────────────────────────────────────────
-PGVECTOR_HNSW_M=16                     # Max connections per HNSW node
-PGVECTOR_HNSW_EF_CONSTRUCTION=64       # Build-time search depth
-PGVECTOR_EF_SEARCH=40                  # Query-time search depth (SET hnsw.ef_search)
-
-# ────────────────────────────────────────────────────
-# SUGGESTION CACHING
-# ────────────────────────────────────────────────────
-SUGGESTION_CACHE_TTL=86400             # Redis TTL in seconds (24 hours)
-SUGGESTION_COUNT=3                     # Number of suggestions per document
-
-# ────────────────────────────────────────────────────
-# CORS
-# ────────────────────────────────────────────────────
-CORS_ORIGIN=http://localhost:5173      # Frontend dev URL (update for production)
-
-# ────────────────────────────────────────────────────
-# RATE LIMITING
-# ────────────────────────────────────────────────────
-RATE_LIMIT_AUTH_MAX=10                 # Max auth requests per window per IP
-RATE_LIMIT_WINDOW_MS=60000             # Rate limit window: 60 seconds
-
-# ────────────────────────────────────────────────────
-# LOGGING
-# ────────────────────────────────────────────────────
-LOG_LEVEL=debug                        # debug | info | warn | error
-LOG_PRETTY=true                        # Pretty print in dev; set false in production
-
-# ────────────────────────────────────────────────────
-# ADMIN SEED
-# ────────────────────────────────────────────────────
-ADMIN_EMAIL=admin@knowbase.local       # Used in seed script
-ADMIN_PASSWORD=AdminSecurePass123!     # Used in seed script — change in production
-ADMIN_NAME=Admin
-
-# ────────────────────────────────────────────────────
-# FRONTEND (Vite — prefix with VITE_ to expose to browser)
-# ────────────────────────────────────────────────────
-VITE_API_BASE_URL=http://localhost:3001/api
-```
-
----
-
-## 4. Environment-Specific Configuration
-
-### 4.1 Local Development
-
-```dotenv
+# Server
+PORT=5000
 NODE_ENV=development
-LOG_LEVEL=debug
-LOG_PRETTY=true
-CORS_ORIGIN=http://localhost:5173
-DATABASE_URL=postgresql://knowbase:knowbase_dev@localhost:5432/knowbase
-REDIS_URL=redis://localhost:6379
 ```
 
-All services run via Docker Compose:
-```bash
-# Start infrastructure (PostgreSQL with pgvector + Redis)
-docker compose up postgres redis -d
+| Variable     | Required | Description                                        |
+| ------------ | -------- | -------------------------------------------------- |
+| DATABASE_URL | Yes      | Full PostgreSQL connection string                  |
+| GROQ_API_KEY | Yes      | API key from console.groq.com                      |
+| PORT         | Yes      | Port the Express server listens on (default: 5000) |
+| NODE_ENV     | No       | `development` or `production`                      |
 
-# Then run app packages from root
+---
+
+## Client Environment Variables
+
+### `client/.env`
+
+```env
+# API
+VITE_API_BASE_URL=http://localhost:5000/api
+```
+
+| Variable           | Required | Description                            |
+| ------------------ | -------- | -------------------------------------- |
+| VITE_API_BASE_URL  | Yes      | Base URL for all Axios API calls       |
+
+**Note:** Vite requires all custom env variables to be prefixed with `VITE_` to be exposed to the browser.
+
+---
+
+## Local Development Setup
+
+### Prerequisites
+
+- Node.js >= 18
+- Docker (for local PostgreSQL)
+- A Groq API key (free at console.groq.com)
+
+### Step 1 — Start the Database
+
+```bash
+docker run \
+  --name knowbase-db \
+  -e POSTGRES_USER=postgres \
+  -e POSTGRES_PASSWORD=postgres \
+  -e POSTGRES_DB=knowbase \
+  -p 5432:5432 \
+  -d ankane/pgvector
+```
+
+Use `ankane/pgvector` image (includes pgvector pre-installed) instead of plain `postgres:15`.
+
+### Step 2 — Run Database Migrations
+
+Connect to the DB and run:
+
+```sql
+CREATE EXTENSION IF NOT EXISTS vector;
+
+CREATE TABLE documents (
+  id         SERIAL PRIMARY KEY,
+  name       VARCHAR(255) NOT NULL,
+  file_type  VARCHAR(10)  NOT NULL,
+  file_size  INTEGER,
+  status     VARCHAR(20)  NOT NULL DEFAULT 'processing',
+  created_at TIMESTAMP    NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE document_chunks (
+  id          SERIAL PRIMARY KEY,
+  document_id INTEGER     NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+  content     TEXT        NOT NULL,
+  chunk_index INTEGER     NOT NULL,
+  embedding   VECTOR(768) NOT NULL
+);
+
+CREATE TABLE suggestions (
+  id          SERIAL PRIMARY KEY,
+  document_id INTEGER  NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+  question    TEXT     NOT NULL,
+  created_at  TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX ON document_chunks
+USING ivfflat (embedding vector_cosine_ops)
+WITH (lists = 100);
+
+CREATE INDEX idx_chunks_document_id ON document_chunks(document_id);
+CREATE INDEX idx_suggestions_document_id ON suggestions(document_id);
+```
+
+### Step 3 — Start the Backend
+
+```bash
+cd server
+cp .env.example .env   # fill in your values
+npm install
 npm run dev
 ```
 
-> **Note:** The Docker Compose uses the `pgvector/pgvector:pg16` image which has pgvector pre-installed. No separate vector DB container is needed.
+Backend runs at: `http://localhost:5000`
 
-### 4.2 CI / Test Environment
-
-```dotenv
-NODE_ENV=test
-LOG_LEVEL=error      # Suppress noise during test runs
-LOG_PRETTY=false
-DATABASE_URL=postgresql://knowbase:test@localhost:5432/knowbase_test
-REDIS_URL=redis://localhost:6379
-```
-
-**Test database setup:**
-```bash
-# Create test DB before running tests
-DATABASE_URL=$TEST_DATABASE_URL npx knex migrate:latest
-```
-
-**Jest auto-setup:** `jest.config.js` loads `.env.test` before test suite.
-
-### 4.3 Production
-
-Production secrets are **never in files** — they are injected via the deployment platform:
-- **Railway / Fly.io:** Environment variables set in the platform dashboard
-- **Vercel (frontend):** VITE_ prefixed vars set in project settings
-
-**Production-specific overrides:**
-```dotenv
-NODE_ENV=production
-LOG_LEVEL=info
-LOG_PRETTY=false
-CORS_ORIGIN=https://knowbase.yourdomain.com
-```
-
-**PostgreSQL provider for production:**
-- Ensure the provider supports the pgvector extension (Neon, Supabase, Railway PostgreSQL, or self-hosted with pgvector installed)
-
----
-
-## 5. Secret Management Rules
-
-| Rule | Description |
-|---|---|
-| Never commit secrets | `.env.local`, `.env.production` are gitignored |
-| Use `.env.example` | Document every variable with a description |
-| Rotate on breach | Change `JWT_SECRET`, `GROQ_API_KEY`, `DB_PASSWORD` immediately if exposed |
-| Scope by environment | Different DB credentials per environment (dev/test/prod) |
-| Strong JWT secret | Minimum 32 characters; generate with `openssl rand -hex 32` |
-| Production DB user | Create a dedicated DB user with minimal required permissions |
-
----
-
-## 6. Service URLs by Environment
-
-| Service | Local Development | Production |
-|---|---|---|
-| Frontend | `http://localhost:5173` | `https://knowbase.yourdomain.com` |
-| API Server | `http://localhost:3001` | `https://api.knowbase.yourdomain.com` |
-| PostgreSQL (+ pgvector) | `localhost:5432` | Managed DB (Neon/Supabase/Railway with pgvector) |
-| Redis | `localhost:6379` | Managed Redis (Upstash/Railway) |
-
----
-
-## 7. Quick Start Commands
+### Step 4 — Start the Frontend
 
 ```bash
-# 1. Clone repo
-git clone <repo-url>
-cd knowbase
-
-# 2. Setup environment
-cp .env.example .env.local
-# Edit .env.local — fill in GROQ_API_KEY, and any other required values
-
-# 3. Start infrastructure (PostgreSQL with pgvector + Redis)
-docker compose up postgres redis -d
-
-# 4. Install dependencies
+cd client
+cp .env.example .env   # set VITE_API_BASE_URL
 npm install
-
-# 5. Run database migrations (includes pgvector extension + all tables)
-cd packages/api && npm run migrate && npm run seed
-
-# 6. Start all services
-cd ../../ && npm run dev
-# Apps start at:
-# - Web:    http://localhost:5173
-# - API:    http://localhost:3001
-# - Worker: background process
+npm run dev
 ```
+
+Frontend runs at: `http://localhost:5173`
+
+---
+
+## Production Environment
+
+### Neon (Database)
+
+1. Create a Neon project at neon.tech
+2. Enable pgvector extension in Neon console
+3. Run the schema migrations above against the Neon connection string
+4. Copy the connection string as `DATABASE_URL` in Render env vars
+
+### Render (Backend)
+
+Environment variables to set in Render dashboard:
+
+```
+DATABASE_URL=<neon_connection_string>
+GROQ_API_KEY=<your_groq_api_key>
+PORT=5000
+NODE_ENV=production
+```
+
+### Vercel (Frontend)
+
+Environment variable to set in Vercel dashboard:
+
+```
+VITE_API_BASE_URL=https://<your-render-service>.onrender.com/api
+```
+
+---
+
+## Environment Validation
+
+`server/src/config/env.js` must validate required variables on startup:
+
+```js
+const required = ['DATABASE_URL', 'GROQ_API_KEY', 'PORT'];
+
+required.forEach((key) => {
+  if (!process.env[key]) {
+    throw new Error(`Missing required environment variable: ${key}`);
+  }
+});
+```
+
+If any required variable is missing, the server must fail fast with a clear error message — not silently break at runtime.
+
+---
+
+## .gitignore Rules
+
+Both `.env` files must be in `.gitignore`:
+
+```
+client/.env
+server/.env
+.env
+```
+
+Provide `.env.example` files with placeholder values for documentation:
+
+- `client/.env.example`
+- `server/.env.example`

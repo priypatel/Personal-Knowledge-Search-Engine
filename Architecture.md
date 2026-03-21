@@ -1,115 +1,159 @@
-## System Architecture Overview
+# Architecture Document
 
-Frontend (React)
+## System Overview
+
+Frontend (Vercel)
 ↓
-API Server (Express)
+Backend API (Render)
 ↓
-
--
-
-| Services |
-| - Upload Service |
-| - Chat (RAG) Service |
-| - Suggestion Service |
+PostgreSQL (Neon + pgvector)
 
 ---
 
-↓
-Queue (Redis + BullMQ)
-↓
-Worker
-↓
+## Internal Architecture
 
--
+### Layers
 
-| Processing Layer |
-| - Text Extraction |
-| - Chunking |
-| - Embedding Generation |
-| - Summary Generation |
-| - AI Suggestion Generation |
+1. Controller Layer
+2. Service Layer
+3. Repository Layer
+4. Database
 
 ---
 
-↓
-pgvector (PostgreSQL Vector Extension)
+## Data Pipeline
 
-- PostgreSQL (metadata + suggestions)
+Upload:
 
----
+1. File → text
+2. Text → chunks
+3. Chunks → embeddings
+4. Store
 
-## Detailed Pipeline
+Search:
 
-1. Upload file
-2. Extract text
-3. Split into chunks
-4. Generate embeddings
-5. Store in vector DB
-6. Generate summary
-7. Generate AI suggestions (Groq)
-8. Store suggestions
+1. Query → embedding
+2. Vector similarity search
+3. Retrieve chunks
+4. LLM response
 
 ---
 
-## UI Flow
+## Database Index (IMPORTANT)
 
-Single Page:
+CREATE INDEX ON document_chunks
+USING ivfflat (embedding vector_cosine_ops);
 
-- Chat + Search
-- Upload inside chat
-- Suggestions below input
-- Sidebar (history)
+---
+
+## Environment Setup
+
+### Local
+
+- Postgres (Docker)
+- Backend local
+
+### Production
+
+- Neon (DB)
+- Render (API)
+- Vercel (frontend)
 
 ---
 
 ## Testing Strategy
 
-### 1. Unit Tests (Jest)
+### Unit (Jest)
 
-- Chunking logic
-- Embedding generation
-- Suggestion generation
+- chunking
+- embedding generation
 
-### 2. Integration Tests
-
-- Upload → Process → Store
-- Suggestion generation pipeline
-
-### 3. E2E Tests (Playwright)
+### E2E (Playwright)
 
 Scenarios:
 
-1. Upload document → suggestions appear
-2. Click suggestion → chat starts
-3. Ask question → response with sources
-4. No document → show proper message
-
-Example:
-
-- Open app
-- Upload file
-- Wait for processing
-- Verify suggestions visible
-- Click suggestion
-- Verify response + sources
+- upload document
+- suggestions appear
+- click suggestion → response
+- query → correct sources
 
 ---
 
-## CI/CD Rule
+## Rules (STRICT)
 
-After every code change:
+- No hardcoded values
+- Use environment variables
+- Every feature must have tests
+- Follow API contract strictly
 
-1. Run unit tests
-2. Run Playwright tests
-3. Fail build if any test fails
+# Tech Stack (STRICT)
+
+## Frontend
+
+- React (Vite)
+- Tailwind CSS
+- Axios (API calls)
+- typescript
 
 ---
 
-## Mandatory Engineering Rule
+## Backend
 
-Every feature must include:
+- Node.js
+- Express.js
 
-- test cases (Jest + Playwright)
-- validation
-- error handling
-- logging
+---
+
+## Database
+
+- PostgreSQL (Neon for production)
+- pgvector extension (for embeddings)
+
+---
+
+## AI / LLM
+
+- Groq API (for answer generation + suggestions)
+
+---
+
+## Embeddings
+
+- sentence-transformers (local or API-based)
+
+---
+
+## File Processing
+
+- pdf-parse (PDF)
+- mammoth (DOCX)
+
+---
+
+## Testing
+
+- Jest (unit + integration)
+- Playwright (E2E)
+
+---
+
+## Deployment
+
+- Frontend → Vercel
+- Backend → Render
+- Database → Neon
+
+---
+
+## Optional (if needed)
+
+- Redis (Upstash) → caching / queue
+
+---
+
+## Constraints (VERY IMPORTANT)
+
+- Do NOT replace PostgreSQL with MongoDB
+- Do NOT introduce any new database
+- Do NOT use Qdrant or Pinecone
+- Follow this stack strictly

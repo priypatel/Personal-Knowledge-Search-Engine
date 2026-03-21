@@ -1,350 +1,150 @@
 # Development Phases
 
-**Project:** Knowbase — Personal Knowledge Search Engine
-**Version:** 1.0 MVP
-**Date:** March 2026
+## Overview
+
+The MVP is broken into 4 sequential phases. Each phase delivers a functional slice of the system. No phase skips testing.
 
 ---
 
-## Phase Overview
+## Phase 1 — Foundation & Infrastructure
 
-```
-Phase 0: Foundation & Tooling      (Week 1)
-Phase 1: Core Backend Pipeline     (Week 2–3)
-Phase 2: RAG Query Engine          (Week 4)
-Phase 3: Frontend — Core UI        (Week 5–6)
-Phase 4: AI Suggestions (Level 3)  (Week 7)
-Phase 5: Auth & Security           (Week 3 — parallel with backend)
-Phase 6: Testing & QA              (Week 7–8)
-Phase 7: Deployment & Launch Prep  (Week 8)
-```
+**Goal:** Project scaffolding, database setup, environment configuration, and base Express/React apps running.
 
-> Note: Auth (Phase 5) runs in parallel with Phase 1 for efficiency. All other phases are sequential dependencies.
+### Tasks
 
----
+#### Backend
+- [ ] Initialize `server/` with Node.js + Express
+- [ ] Configure `package.json` with all dependencies
+- [ ] Set up `.env` with `DATABASE_URL`, `GROQ_API_KEY`, `PORT`
+- [ ] Create `server/src/config/db.js` — PostgreSQL connection pool
+- [ ] Create `server/src/config/env.js` — validate required env vars on startup
+- [ ] Create `server/src/app.js` — Express app setup with middleware
+- [ ] Create `server/src/server.js` — HTTP server entry point
+- [ ] Add global error middleware in `server/src/middlewares/error.middleware.js`
+- [ ] Set up logger utility in `server/src/utils/logger.js`
 
-## Phase 0: Foundation & Tooling
-**Duration:** 3–4 days (Week 1)
-**Goal:** Establish the monorepo, developer environment, and baseline infrastructure.
+#### Database
+- [ ] Run PostgreSQL locally via Docker
+- [ ] Enable pgvector extension: `CREATE EXTENSION IF NOT EXISTS vector;`
+- [ ] Create `documents` table
+- [ ] Create `document_chunks` table with `VECTOR(768)` column
+- [ ] Create `suggestions` table
+- [ ] Add ivfflat index on `document_chunks.embedding`
+- [ ] Add foreign key indexes on `document_id` columns
 
-### Deliverables
+#### Frontend
+- [ ] Initialize `client/` with Vite + React + TypeScript
+- [ ] Install Tailwind CSS, Axios, React Router v6, Lucide React
+- [ ] Configure `client/.env` with `VITE_API_BASE_URL`
+- [ ] Create `src/styles/tokens.css` with all CSS custom properties
+- [ ] Scaffold `App.jsx` with basic router setup
+- [ ] Create `src/services/api.js` with Axios base configuration
 
-| Task | Owner Package | Notes |
-|---|---|---|
-| Initialize monorepo (Turborepo + npm workspaces) | root | `packages/web`, `api`, `worker`, `shared` |
-| Configure TypeScript (strict) for all packages | all | Shared `tsconfig.base.json` |
-| Set up ESLint + Prettier at root | root | Shared config extended per package |
-| Configure Docker Compose | docker/ | pgvector/pgvector:pg16, redis, api, worker, web |
-| Create `.env.example` with all required variables | root | |
-| Initialize Knex + migration runner | `api` | Create first migration (empty) |
-| Initialize Vite + React project in `web` | `web` | |
-| Install all dependencies (see monorepo-architecture.md) | all | |
-| Create Git repository, set up `main` branch protection | git | Require PR + passing CI |
-| Set up GitHub Actions CI pipeline (lint + test + build) | .github/ | |
-
-### Completion Criteria
-- [ ] `npm run dev` from root starts all 3 services (api, worker, web)
-- [ ] Docker Compose brings up postgres (with pgvector), redis successfully
-- [ ] GitHub CI runs and passes on push to any branch
-- [ ] All environment variables documented in `.env.example`
+**Exit Criteria:** Both client and server start without errors. DB tables exist and are queryable.
 
 ---
 
-## Phase 1: Core Backend Pipeline
-**Duration:** 7–10 days (Week 2–3)
-**Goal:** Full end-to-end document processing pipeline working.
+## Phase 2 — Document Upload & Processing Pipeline
 
-### Deliverables
+**Goal:** End-to-end document upload: file → text → chunks → embeddings → DB → suggestions.
 
-#### 1A: Upload Service
-| Task | Package |
-|---|---|
-| `POST /api/upload` endpoint with Multer | `api` |
-| File type validation (PDF, DOCX, TXT) | `api` |
-| File size validation (max 10MB) | `api` |
-| Save file to disk under `uploads/{userId}/{documentId}/` | `api` |
-| Insert document record to PostgreSQL (status: 'processing') | `api` |
-| Enqueue BullMQ job: `document-processing` | `api` |
-| Return 202 Accepted with documentId | `api` |
+### Tasks
 
-#### 1B: Database Migrations
-| Task | Package |
-|---|---|
-| Migration: `create_users_table` | `api` |
-| Migration: `create_documents_table` | `api` |
-| Migration: `create_suggestions_table` | `api` |
-| Migration: `create_chat_sessions_table` | `api` |
-| Migration: `create_chat_messages_table` | `api` |
-| Migration: `create_message_citations_table` | `api` |
-| Seed: Admin user creation | `api` |
+#### Backend
+- [ ] Install multer, pdf-parse, mammoth, sentence-transformers (or equivalent)
+- [ ] Implement `utils/chunking.js` — split text into 500–800 token chunks with overlap
+- [ ] Implement `document.service.js` — `extractText()` and `chunkText()`
+- [ ] Implement `embedding.service.js` — `generateEmbedding(text)` returning 768-dim vector
+- [ ] Implement `suggestion.service.js` — `generateSuggestions(summary)` via Groq
+- [ ] Implement `document.repository.js` — insert document, insert chunks, insert suggestions, update status
+- [ ] Implement `upload.controller.js` — validate file, delegate to services
+- [ ] Create `upload.routes.js` — mount `POST /api/upload`
+- [ ] Handle all error cases: empty doc, bad type, size limit, processing failure
+- [ ] Write unit tests for `chunking.js`
+- [ ] Write unit tests for `document.service.js`
+- [ ] Write unit tests for `embedding.service.js`
+- [ ] Write integration test for `POST /api/upload`
 
-#### 1C: Document Processing Worker
-| Task | Package |
-|---|---|
-| BullMQ worker setup consuming `document-processing` queue | `worker` |
-| PDF text extraction (pdf-parse) | `worker` |
-| DOCX text extraction (mammoth) | `worker` |
-| TXT text extraction (native fs.readFile) | `worker` |
-| Text chunking: 500-token, 50-token overlap, sentence-aware | `worker` |
-| Embedding generation per chunk via Groq | `worker` |
-| Store embeddings in PostgreSQL `document_embeddings` table (pgvector) | `worker` |
-| Update document status to 'ready' or 'error' | `worker` |
-| BullMQ retry policy: 3 attempts, exponential backoff | `worker` |
+#### Frontend
+- [ ] Build `Upload/Upload.jsx` — click-to-upload + drag-and-drop
+- [ ] Show upload status: uploading → processing → ready / failed
+- [ ] Wire to `POST /api/upload` via `services/api.js`
+- [ ] Write `Upload.test.jsx`
 
-#### 1D: Document Status API
-| Task | Package |
-|---|---|
-| `GET /api/documents` — list user's documents | `api` |
-| `GET /api/documents/:id/status` — poll processing status | `api` |
-| `DELETE /api/documents/:id` — delete + cascade embeddings | `api` |
-
-### Completion Criteria
-- [ ] Upload a PDF → worker processes it → status changes to 'ready'
-- [ ] Chunks stored in `document_embeddings` table with correct user_id
-- [ ] Failed job retried 3 times then marked 'error' in DB
-- [ ] Unit tests for chunking logic pass (>= 80% coverage)
-- [ ] Integration test for upload endpoint passes
+**Exit Criteria:** Upload a PDF/DOCX/TXT → file processed → chunks and embeddings stored in DB → suggestions stored → response returned to frontend.
 
 ---
 
-## Phase 2: RAG Query Engine
-**Duration:** 5–7 days (Week 4)
-**Goal:** Full RAG pipeline working: query → vector search → LLM → response + citations.
+## Phase 3 — Chat / RAG Query Pipeline
 
-### Deliverables
+**Goal:** User asks a question → semantic search → LLM answer → sources returned to UI.
 
-| Task | Package |
-|---|---|
-| Query embedding via Groq | `api` |
-| pgvector search: top-5, cosine distance, user-scoped filter | `api` |
-| Relevance scoring + re-ranking (cosine + recency boost) | `api` |
-| Context assembly (≤6,000 tokens, labeled chunks) | `api` |
-| Groq LLM prompt construction (strict RAG mode) | `api` |
-| SSE streaming response to frontend | `api` |
-| Save chat session + messages to PostgreSQL | `api` |
-| Save citations (message_citations table) | `api` |
-| `POST /api/chat` endpoint | `api` |
-| `GET /api/chat/sessions` endpoint | `api` |
-| `GET /api/chat/sessions/:id` endpoint | `api` |
-| `GET /api/chunks/:chunkId` endpoint (for citation panel) | `api` |
-| "No documents" fallback (skip LLM, return message) | `api` |
-| "No relevant results" fallback (0 chunks pass threshold) | `api` |
+### Tasks
 
-### Completion Criteria
-- [ ] Ask a question about an uploaded PDF → get a grounded answer
-- [ ] Response includes citation metadata with document name + chunk
-- [ ] Empty document library → "No documents found" response (no LLM call)
-- [ ] No chunk passes score threshold → returns fallback message (no LLM call)
-- [ ] Unit tests for scoring and context assembly
-- [ ] Integration test for `/api/chat` endpoint
+#### Backend
+- [ ] Implement `search.service.js` — `similaritySearch(vector)` returning top-5 chunks
+- [ ] Implement `chat.controller.js` — validate query, call embedding + search + LLM
+- [ ] Build LLM prompt with system instruction + context chunks + user query
+- [ ] Call Groq API and return answer
+- [ ] Return structured response: `{ answer, sources[] }`
+- [ ] Handle: no match → "No relevant data found", Groq failure → retry once → 503
+- [ ] Create `chat.routes.js` — mount `POST /api/chat`
+- [ ] Write unit tests for `search.service.js`
+- [ ] Write integration test for `POST /api/chat`
 
----
+#### Frontend
+- [ ] Build `Chat/Chat.jsx` — message thread component
+- [ ] Build landing state: centered search bar + suggestion pills
+- [ ] Build active chat state: scrollable thread + pinned input bar
+- [ ] Render user message bubble immediately (optimistic)
+- [ ] Show search status indicator: "Searching X documents, found Y chunks"
+- [ ] Render AI response (plain text, no bubble)
+- [ ] Render citation pills below each AI response
+- [ ] Build `Suggestions/Suggestions.jsx` — display + click to populate search bar
+- [ ] Wire to `POST /api/chat` and `GET /api/suggestions`
+- [ ] Write `Chat.test.jsx` and `Suggestions.test.jsx`
 
-## Phase 3: Frontend — Core UI
-**Duration:** 8–10 days (Week 5–6)
-**Goal:** Full working UI: landing, chat, sidebar, upload, citations.
-
-### Deliverables
-
-#### 3A: Design System & Tokens
-| Task |
-|---|
-| Implement `styles/tokens.css` with all CSS custom properties from UIDesign.md |
-| Configure Tailwind with token extensions |
-| Add Inter + JetBrains Mono from Google Fonts |
-
-#### 3B: Layout Shell
-| Task |
-|---|
-| App shell: sidebar (260px fixed) + main content (flex-grow) |
-| Responsive: sidebar collapses to icon-only at 768–1023px |
-| Responsive: sidebar becomes slide-over drawer at <768px |
-
-#### 3C: Sidebar Components
-| Task |
-|---|
-| `Sidebar.tsx` — full sidebar layout |
-| `ChatHistoryItem.tsx` — with date-group labels (TODAY, YESTERDAY, THIS WEEK) |
-| `DocumentList.tsx` — file type badges, processing status |
-| `UserProfile.tsx` — avatar (initials), user name |
-| `New Chat` button with Ctrl+N keyboard shortcut |
-
-#### 3D: Landing Screen
-| Task |
-|---|
-| `LandingView.tsx` — centered brand icon, heading, subtitle |
-| `SearchBar.tsx` — upload button, file type pills, send button, keyboard shortcuts |
-| `SuggestionPills.tsx` — placeholder while no documents |
-
-#### 3E: Chat View Screen
-| Task |
-|---|
-| `ChatView.tsx` — full-height flex column |
-| `ChatHeader.tsx` — title + source count badge |
-| `MessageBubble.tsx` — user bubble (right-aligned, primary blue) |
-| `AIResponse.tsx` — left-aligned, no bubble, streaming |
-| `SearchStatus.tsx` — animated search indicator above AI response |
-| `CitationPill.tsx` — blue vs. teal color logic |
-| `ActionButtons.tsx` — Copy, View Sources |
-| `FileAttachmentIndicator.tsx` — shows uploaded file in chat |
-
-#### 3F: Source Detail Panel
-| Task |
-|---|
-| `SourceDetailPanel.tsx` — slide-in from right (250ms ease-out) |
-| Full chunk text + document name + page ref |
-| Previous/next navigation |
-| Relevance score indicator |
-| Dismiss on Esc or close button |
-
-#### 3G: Shared Components
-| Task |
-|---|
-| `Toast.tsx` — top-right auto-dismiss (5s) |
-| `Badge.tsx` — file type badges |
-| `Avatar.tsx` — initials circle |
-| `IconButton.tsx` — standardized icon button |
-| Skeleton loading states (pulsing blocks for AI response) |
-
-#### 3H: API Integration
-| Task |
-|---|
-| `api/client.ts` — Axios instance with JWT header injection |
-| `useUpload.ts` hook — upload + status polling |
-| `useChat.ts` hook — send query, SSE streaming, citation handling |
-| `useSearch.ts` hook — search bar state |
-| Error state handling for all UI error cases in UIDesign.md |
-
-### Completion Criteria
-- [ ] Full user flow works end-to-end in browser (upload → suggestions → query → citations)
-- [ ] All keyboard shortcuts work (/, Ctrl+N, Ctrl+K, Enter, Shift+Enter, Esc)
-- [ ] Error states display correctly (upload fail, no results, network error)
-- [ ] Empty states display correctly (no chats, no documents, no results)
-- [ ] Responsive layout works at 768px, 1024px, 1440px
+**Exit Criteria:** Query submitted → top-5 chunks retrieved → LLM answer with sources returned → displayed in UI with citation pills.
 
 ---
 
-## Phase 4: AI Suggestions (Level 3)
-**Duration:** 3–4 days (Week 7)
-**Goal:** Document summary + 3 AI suggestions generated per upload, cached and displayed.
+## Phase 4 — Sidebar, Polish & E2E Testing
 
-### Deliverables
+**Goal:** Complete the UI, sidebar functionality, error/empty states, and full E2E test coverage.
 
-| Task | Package |
-|---|---|
-| Document summary generation (Groq) in worker pipeline | `worker` |
-| Suggestion generation: 3 questions per document (Groq) | `worker` |
-| Store suggestions in PostgreSQL | `worker` |
-| Cache suggestions in Redis (TTL 24h) | `api` |
-| `GET /api/suggestions` endpoint (with Redis cache logic) | `api` |
-| Update `SuggestionPills.tsx` to show real suggestions after upload | `web` |
-| Suggestion click → auto-populate + auto-send query | `web` |
-| Fallback static suggestions when generation fails | `worker` |
+### Tasks
 
-### Completion Criteria
-- [ ] Upload a document → 3 real suggestions appear below search bar
-- [ ] Suggestions are document-specific and contextually relevant
-- [ ] Second page load (cache hit): suggestions load < 100ms
-- [ ] Worker suggestion failure: static fallbacks shown, no UI error
+#### Frontend
+- [ ] Build `Sidebar/Sidebar.jsx` — chat history grouped by date + document list
+- [ ] Implement keyboard shortcuts: `/`, `Ctrl+N`, `Enter`, `Shift+Enter`, `Esc`
+- [ ] Implement all error states: upload fail, no results, network error (toast/banner)
+- [ ] Implement all empty states: no chats, no documents, no results
+- [ ] Implement responsive layout: ≥1024px, 768–1023px, <768px
+- [ ] Add loading skeleton for AI response
+- [ ] Add document type badges (PDF/DOCX/TXT colors)
+- [ ] Build `ChatPage.jsx` — compose all components into the full page
+- [ ] Write `Sidebar.test.jsx` and `ChatPage.test.jsx`
 
----
+#### E2E Tests (Playwright)
+- [ ] `upload.spec.js` — upload PDF → status transitions → document appears in sidebar
+- [ ] `suggestions.spec.js` — upload document → suggestions appear → click → search bar populated
+- [ ] `chat.spec.js` — submit query → AI response with citation pills displayed
 
-## Phase 5: Authentication & Security (Parallel with Phase 1)
-**Duration:** 4–5 days (Week 3)
-**Goal:** User registration, login, JWT auth, protected routes.
+#### Deployment
+- [ ] Deploy database to Neon — run schema migrations
+- [ ] Deploy backend to Render — configure env vars
+- [ ] Deploy frontend to Vercel — configure `VITE_API_BASE_URL`
+- [ ] Smoke test all 3 endpoints in production
 
-### Deliverables
-
-| Task | Package |
-|---|---|
-| `POST /api/auth/register` — email + password registration | `api` |
-| `POST /api/auth/login` — JWT issuance | `api` |
-| `auth.middleware.ts` — JWT verification on protected routes | `api` |
-| Role-based access: `user` vs `admin` | `api` |
-| Admin user seed: `seeds/01_admin_user.js` | `api` |
-| Rate limiter on auth routes (10/min) | `api` |
-| `LoginPage.tsx` — Formik + Yup form | `web` |
-| `RegisterPage.tsx` — Formik + Yup form | `web` |
-| Auth context + `useAuth.ts` hook | `web` |
-| Protected route wrapper: redirect `/login` if unauthenticated | `web` |
-
-### Completion Criteria
-- [ ] Register a new user → redirected to app
-- [ ] Login with wrong password → generic error message
-- [ ] Unauthenticated request to protected API route → 401
-- [ ] Admin user exists after `knex seed:run`
-- [ ] Admin user cannot be created via UI
+**Exit Criteria:** All E2E scenarios pass. App is deployed and functional on Vercel + Render + Neon.
 
 ---
 
-## Phase 6: Testing & QA
-**Duration:** 5–7 days (Week 7–8)
-**Goal:** Full test suite passing. Coverage ≥ 80%.
+## Phase Summary
 
-### Deliverables
-
-| Task | Package |
-|---|---|
-| Unit tests: chunking logic | `worker` |
-| Unit tests: embedding generation | `worker` |
-| Unit tests: scoring + re-ranking algorithm | `api` |
-| Unit tests: context assembly | `api` |
-| Unit tests: suggestion generation | `worker` |
-| Integration tests: `POST /api/auth/register` | `api` |
-| Integration tests: `POST /api/auth/login` | `api` |
-| Integration tests: `POST /api/upload` | `api` |
-| Integration tests: `POST /api/chat` | `api` |
-| Integration tests: `GET /api/suggestions` | `api` |
-| Playwright E2E: all 8 scenarios from engineering-scope-defination.md | `web` |
-| Jest coverage report — assert ≥ 80% | all |
-
-### Completion Criteria
-- [ ] All 8 Playwright E2E scenarios pass
-- [ ] Jest unit + integration coverage ≥ 80%
-- [ ] No linting errors (`eslint --max-warnings 0`)
-- [ ] CI pipeline green on `main` branch
-
----
-
-## Phase 7: Deployment & Launch Prep
-**Duration:** 3–4 days (Week 8)
-**Goal:** Deploy to production environment. Documentation complete.
-
-### Deliverables
-
-| Task |
-|---|
-| Deploy PostgreSQL (managed: Railway / Neon / Supabase) |
-| Verify pgvector extension is supported on production PostgreSQL provider |
-| Deploy Redis (managed: Upstash or Railway Redis) |
-| Deploy API server (Railway / Fly.io / Render) |
-| Deploy Worker service (same platform as API or separate) |
-| Deploy Frontend (Vercel / Netlify) |
-| Set all production environment variables in deploy platform |
-| Run `knex migrate:latest` on production DB |
-| Run `knex seed:run` for admin user on production DB |
-| Verify health check endpoint returns 200 on production |
-| Smoke test all 8 Playwright scenarios against production URL |
-| Final README.md update: setup, run, deploy instructions |
-
-### Completion Criteria
-- [ ] Production URL accessible and fully functional
-- [ ] All environment variables properly set (no using dev secrets in prod)
-- [ ] Health check at `/api/health` returns `status: ok` in production
-- [ ] All 8 E2E scenarios pass against production URL
-
----
-
-## Timeline Summary
-
-| Phase | Duration | Week |
-|---|---|---|
-| Phase 0: Foundation | ~4 days | Week 1 |
-| Phase 1: Backend Pipeline | ~8 days | Week 2–3 |
-| Phase 5: Auth (parallel) | ~5 days | Week 3 |
-| Phase 2: RAG Engine | ~6 days | Week 4 |
-| Phase 3: Frontend UI | ~9 days | Week 5–6 |
-| Phase 4: AI Suggestions | ~4 days | Week 7 |
-| Phase 6: Testing | ~6 days | Week 7–8 |
-| Phase 7: Deployment | ~4 days | Week 8 |
-| **Total** | **~46 dev-days** | **~8 weeks** |
+| Phase | Focus                        | Key Deliverable                                |
+| ----- | ---------------------------- | ---------------------------------------------- |
+| 1     | Foundation & Infrastructure  | Both apps run, DB tables exist                 |
+| 2     | Upload & Processing Pipeline | File → embeddings → DB → suggestions           |
+| 3     | RAG Query Pipeline           | Query → vector search → LLM answer → citations |
+| 4     | Sidebar, Polish & E2E        | Full UI + all tests passing + deployed         |
