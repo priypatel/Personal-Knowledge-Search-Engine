@@ -2,7 +2,7 @@
 
 1. API Server
 2. Worker Service
-3. Vector Database (Qdrant)
+3. Vector Store (pgvector — PostgreSQL extension)
 4. Relational Database (PostgreSQL)
 5. Redis Queue
 
@@ -17,7 +17,7 @@ User uploads file
 → Text extraction
 → Chunking
 → Embeddings
-→ Store in Qdrant
+→ Store in pgvector (PostgreSQL)
 → Generate summary
 → LLM generates suggestions
 → Store in PostgreSQL
@@ -29,7 +29,7 @@ User uploads file
 User query
 → API
 → Convert to embedding
-→ Vector search (Qdrant)
+→ Vector search (pgvector)
 → Retrieve top-k chunks
 → Send to LLM (Groq)
 → Return answer + sources
@@ -69,8 +69,8 @@ PostgreSQL:
 - documents
 - suggestions
 
-Qdrant:
+pgvector (PostgreSQL extension):
 
-- embeddings
+- embeddings (stored in documents_embeddings table)
 
 ---

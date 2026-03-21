@@ -26,7 +26,7 @@ Backend:
 Databases:
 
 - PostgreSQL (metadata + suggestions)
-- Qdrant (vector DB)
+- pgvector (PostgreSQL vector extension)
 
 AI:
 

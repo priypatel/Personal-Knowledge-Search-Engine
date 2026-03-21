@@ -32,7 +32,7 @@ Worker
 ---
 
 ↓
-Qdrant (Vector DB)
+pgvector (PostgreSQL Vector Extension)
 
 - PostgreSQL (metadata + suggestions)
 
