@@ -21,7 +21,7 @@ function Spinner() {
   );
 }
 
-export default function Upload({ onUploadSuccess }) {
+export default function Upload({ onUploadSuccess, onUploadError }) {
   const [status, setStatus] = useState('idle'); // idle | uploading | processing | ready | error
   const [errorMessage, setErrorMessage] = useState('');
   const [documentName, setDocumentName] = useState('');
@@ -43,6 +43,7 @@ export default function Upload({ onUploadSuccess }) {
     if (err) {
       setStatus('error');
       setErrorMessage(err);
+      onUploadError?.(err);
       return;
     }
 
@@ -67,6 +68,7 @@ export default function Upload({ onUploadSuccess }) {
         'Upload failed. Please try again.';
       setStatus('error');
       setErrorMessage(msg);
+      onUploadError?.(msg);
     }
   }
 

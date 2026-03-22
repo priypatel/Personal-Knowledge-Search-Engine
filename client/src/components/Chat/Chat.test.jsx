@@ -9,6 +9,29 @@ jest.mock('../../services/api.js', () => ({
 jest.mock('lucide-react', () => ({
   Search: () => <svg data-testid="search-icon" />,
   SendHorizontal: () => <svg data-testid="send-icon" />,
+  Paperclip: () => <svg data-testid="paperclip-icon" />,
+  Copy: () => <svg data-testid="copy-icon" />,
+  Check: () => <svg data-testid="check-icon" />,
+}));
+
+jest.mock('../Upload/Upload.jsx', () => ({
+  __esModule: true,
+  default: ({ onUploadSuccess, onUploadError }) => (
+    <div data-testid="upload-zone">
+      <button
+        data-testid="upload-success-btn"
+        onClick={() => onUploadSuccess?.({ documentId: 1, name: 'test.pdf' })}
+      >
+        Upload
+      </button>
+      <button
+        data-testid="upload-error-btn"
+        onClick={() => onUploadError?.('Upload failed')}
+      >
+        Error
+      </button>
+    </div>
+  ),
 }));
 
 import { sendChat } from '../../services/api.js';

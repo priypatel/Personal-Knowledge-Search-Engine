@@ -1,0 +1,7 @@
+Knowbase is a personal knowledge search engine.
+It uses RAG (Retrieval-Augmented Generation) to answer questions from uploaded documents.
+The system extracts text from PDF, DOCX, and TXT files.
+Text is split into chunks and stored as vector embeddings in PostgreSQL using pgvector.
+When a user asks a question, the system finds the most similar chunks and sends them to an LLM.
+The LLM generates an answer based only on the retrieved content.
+This ensures all answers are grounded in the uploaded documents.
