@@ -24,9 +24,8 @@ CREATE TABLE IF NOT EXISTS suggestions (
   created_at  TIMESTAMP    NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_chunks_embedding
-  ON document_chunks USING ivfflat (embedding vector_cosine_ops)
-  WITH (lists = 100);
+-- Note: ivfflat index requires ≥ lists rows to work correctly.
+-- Add back in production: CREATE INDEX ON document_chunks USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
 
 CREATE INDEX IF NOT EXISTS idx_chunks_document_id ON document_chunks(document_id);
 CREATE INDEX IF NOT EXISTS idx_suggestions_document_id ON suggestions(document_id);

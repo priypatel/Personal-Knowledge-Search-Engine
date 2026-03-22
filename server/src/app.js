@@ -4,6 +4,8 @@ import cors from 'cors';
 import helmet from 'helmet';
 import errorMiddleware from './middlewares/error.middleware.js';
 import uploadRoutes from './routes/upload.routes.js';
+import chatRoutes from './routes/chat.routes.js';
+import suggestionRoutes from './routes/suggestion.routes.js';
 
 const app = express();
 
@@ -18,6 +20,8 @@ app.get('/health', (req, res) => {
 
 // API routes
 app.use('/api', uploadRoutes);
+app.use('/api', chatRoutes);
+app.use('/api', suggestionRoutes);
 
 app.use(errorMiddleware);
 
