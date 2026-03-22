@@ -1,85 +1,85 @@
 # Task List
 
-## Phase 1 — Foundation & Infrastructure
+## Phase 1 — Foundation & Infrastructure ✅
 
 ### Database
-- [ ] Start PostgreSQL locally via Docker (use `ankane/pgvector` image)
-- [ ] Create `knowbase` database
-- [ ] Enable pgvector extension
-- [ ] Create `documents` table
-- [ ] Create `document_chunks` table with `VECTOR(768)` column
-- [ ] Create `suggestions` table
-- [ ] Add ivfflat index on `document_chunks.embedding`
-- [ ] Add indexes on `document_id` FK columns
+- [x] Start PostgreSQL locally via Docker (use `ankane/pgvector` image)
+- [x] Create `knowbase` database
+- [x] Enable pgvector extension
+- [x] Create `documents` table
+- [x] Create `document_chunks` table with `VECTOR(384)` column
+- [x] Create `suggestions` table
+- [x] Add ivfflat index on `document_chunks.embedding`
+- [x] Add indexes on `document_id` FK columns
 
 ### Backend
-- [ ] Initialize `server/` — `npm init`, install Express, dotenv, pg, cors, multer
-- [ ] Create `server/.env` with `DATABASE_URL`, `GROQ_API_KEY`, `PORT`
-- [ ] Create `server/src/config/db.js` — pg connection pool
-- [ ] Create `server/src/config/env.js` — validate required env vars at startup
-- [ ] Create `server/src/app.js` — Express app, JSON + cors middleware
-- [ ] Create `server/src/server.js` — start HTTP server
-- [ ] Create `server/src/middlewares/error.middleware.js` — global error handler
-- [ ] Create `server/src/utils/logger.js`
-- [ ] Confirm server starts and DB connection succeeds
+- [x] Initialize `server/` — `npm init`, install Express, dotenv, pg, cors, multer
+- [x] Create `server/.env` with `DATABASE_URL`, `GROQ_API_KEY`, `PORT`
+- [x] Create `server/src/config/db.js` — pg connection pool
+- [x] Create `server/src/config/env.js` — validate required env vars at startup
+- [x] Create `server/src/app.js` — Express app, JSON + cors middleware
+- [x] Create `server/src/server.js` — start HTTP server
+- [x] Create `server/src/middlewares/error.middleware.js` — global error handler
+- [x] Create `server/src/utils/logger.js`
+- [x] Confirm server starts and DB connection succeeds
 
 ### Frontend
-- [ ] Initialize `client/` — Vite + React + TypeScript
-- [ ] Install Tailwind CSS, Axios, React Router v6, Lucide React
-- [ ] Create `client/.env` with `VITE_API_BASE_URL`
-- [ ] Create `src/styles/tokens.css` — all CSS custom properties from UIDesign.md
-- [ ] Scaffold `App.jsx` with router
-- [ ] Create `src/services/api.js` — Axios instance with base URL
-- [ ] Confirm frontend starts without errors
+- [x] Initialize `client/` — Vite + React + TypeScript
+- [x] Install Tailwind CSS, Axios, React Router v6
+- [x] Create `client/.env` with `VITE_API_BASE_URL`
+- [x] Create `src/styles/tokens.css` — all CSS custom properties from UIDesign.md
+- [x] Scaffold `App.jsx` with router
+- [x] Create `src/services/api.js` — Axios instance with base URL
+- [x] Confirm frontend starts without errors
 
 ---
 
-## Phase 2 — Upload & Processing Pipeline
+## Phase 2 — Upload & Processing Pipeline ✅
 
 ### Backend
-- [ ] Install pdf-parse, mammoth, sentence-transformers (or @xenova/transformers)
-- [ ] Implement `server/src/utils/chunking.js`
-  - [ ] Split text into 500–800 token chunks
-  - [ ] Implement overlap between chunks
-- [ ] Implement `server/src/services/document.service.js`
-  - [ ] `extractText(file, mimeType)` — dispatch to pdf-parse / mammoth / fs
-  - [ ] `chunkText(text)` — call chunking util
-- [ ] Implement `server/src/services/embedding.service.js`
-  - [ ] `generateEmbedding(text)` — return 768-dim float array
-- [ ] Implement `server/src/services/suggestion.service.js`
-  - [ ] `generateSuggestions(summary)` — call Groq, return 3 questions
-- [ ] Implement `server/src/repositories/document.repository.js`
-  - [ ] `insertDocument(name, fileType, fileSize)`
-  - [ ] `insertChunk(documentId, content, chunkIndex, embedding)`
-  - [ ] `insertSuggestion(documentId, question)`
-  - [ ] `updateDocumentStatus(id, status)`
-  - [ ] `getChunksByDocumentId(documentId)`
-  - [ ] `getSuggestionsByDocumentId(documentId)`
-- [ ] Implement `server/src/controllers/upload.controller.js`
-  - [ ] Validate file present, type, size
-  - [ ] Delegate to services
-  - [ ] Return `{ documentId, name, status, chunkCount, suggestions[] }`
-- [ ] Create `server/src/routes/upload.routes.js` — `POST /api/upload`
-- [ ] Wire routes into `app.js`
+- [x] Install pdf-parse, mammoth, @xenova/transformers
+- [x] Implement `server/src/utils/chunking.js`
+  - [x] Split text into 500–800 token chunks
+  - [x] Implement overlap between chunks
+- [x] Implement `server/src/services/document.service.js`
+  - [x] `extractText(file, mimeType)` — dispatch to pdf-parse / mammoth / fs
+  - [x] `chunkText(text)` — call chunking util
+- [x] Implement `server/src/services/embedding.service.js`
+  - [x] `generateEmbedding(text)` — return 384-dim float array (Xenova/all-MiniLM-L6-v2)
+- [x] Implement `server/src/services/suggestion.service.js`
+  - [x] `generateSuggestions(summary)` — call multi-provider LLM, return 3 questions
+- [x] Implement `server/src/repositories/document.repository.js`
+  - [x] `insertDocument(name, fileType, fileSize)`
+  - [x] `insertChunk(documentId, content, chunkIndex, embedding)`
+  - [x] `insertSuggestion(documentId, question)`
+  - [x] `updateDocumentStatus(id, status)`
+  - [x] `getChunksByDocumentId(documentId)`
+  - [x] `getSuggestionsByDocumentId(documentId)`
+- [x] Implement `server/src/controllers/upload.controller.js`
+  - [x] Validate file present, type, size
+  - [x] Delegate to services
+  - [x] Return `{ documentId, name, status, chunkCount, suggestions[] }`
+- [x] Create `server/src/routes/upload.routes.js` — `POST /api/upload`
+- [x] Wire routes into `app.js`
 
 ### Backend Tests
-- [ ] Unit test: `chunking.js` — chunk sizes, overlap, edge cases
-- [ ] Unit test: `document.service.js` — text extraction mocked
-- [ ] Unit test: `embedding.service.js` — mock model, assert 768-dim output
-- [ ] Integration test: `POST /api/upload` — happy path + all error cases
+- [x] Unit test: `chunking.js` — chunk sizes, overlap, edge cases
+- [x] Unit test: `document.service.js` — text extraction mocked
+- [x] Unit test: `embedding.service.js` — mock model, assert 384-dim output
+- [x] Integration test: `POST /api/upload` — happy path + all error cases
 
 ### Frontend
-- [ ] Build `Upload/Upload.jsx`
-  - [ ] Click-to-upload button
-  - [ ] Drag-and-drop zone
-  - [ ] File type and size validation (client-side)
-  - [ ] Status indicator: uploading → processing → ready / failed
-- [ ] Wire `Upload.jsx` to `POST /api/upload` via `services/api.js`
-- [ ] Write `Upload.test.jsx`
+- [x] Build `Upload/Upload.jsx`
+  - [x] Click-to-upload button
+  - [x] Drag-and-drop zone
+  - [x] File type and size validation (client-side)
+  - [x] Status indicator: uploading → processing → ready / failed
+- [x] Wire `Upload.jsx` to `POST /api/upload` via `services/api.js`
+- [x] Write `Upload.test.jsx`
 
 ---
 
-## Phase 3 — RAG Query Pipeline
+## Phase 3 — RAG Query Pipeline 🔄
 
 ### Backend
 - [ ] Implement `server/src/services/search.service.js`
@@ -89,10 +89,10 @@
   - [ ] Call embedding service on query
   - [ ] Call search service
   - [ ] Build LLM prompt with system + context + user
-  - [ ] Call Groq API
+  - [ ] Call LLM via multi-provider service
   - [ ] Return `{ answer, sources[] }`
   - [ ] Handle no-match → `"No relevant data found"`
-  - [ ] Handle Groq failure → retry once → 503
+  - [ ] Handle LLM failure → retry once → 503
 - [ ] Create `server/src/routes/chat.routes.js` — `POST /api/chat`
 - [ ] Implement `server/src/controllers/suggestion.controller.js`
 - [ ] Create `server/src/routes/suggestion.routes.js` — `GET /api/suggestions`
@@ -100,7 +100,7 @@
 
 ### Backend Tests
 - [ ] Unit test: `search.service.js` — mock DB, assert top-5 returned
-- [ ] Unit test: `suggestion.service.js` — mock Groq, assert 3 questions
+- [ ] Unit test: `suggestion.service.js` — mock LLM, assert 3 questions
 - [ ] Integration test: `POST /api/chat` — valid query, missing query, no match
 - [ ] Integration test: `GET /api/suggestions` — valid id, missing id, not found
 
@@ -123,7 +123,7 @@
 
 ---
 
-## Phase 4 — Sidebar, Polish & E2E
+## Phase 4 — Sidebar, Polish & E2E ⏳
 
 ### Frontend
 - [ ] Build `Sidebar/Sidebar.jsx`

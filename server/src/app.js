@@ -3,6 +3,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import errorMiddleware from './middlewares/error.middleware.js';
+import uploadRoutes from './routes/upload.routes.js';
 
 const app = express();
 
@@ -15,7 +16,8 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
 });
 
-// Routes will be mounted here in later phases
+// API routes
+app.use('/api', uploadRoutes);
 
 app.use(errorMiddleware);
 
