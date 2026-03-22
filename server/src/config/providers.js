@@ -10,9 +10,9 @@
 export const PROVIDER_PRIORITY = ['groq', 'deepseek', 'gemini'];
 
 export const PROVIDER_MODELS = {
-  groq: 'llama3-8b-8192',
+  groq: 'llama-3.1-8b-instant',
   deepseek: 'deepseek-chat',
-  gemini: 'gemini-1.5-flash',
+  gemini: 'gemini-2.0-flash',
 };
 
 export const PROVIDER_RATE_LIMITS = {

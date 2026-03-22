@@ -6,72 +6,72 @@ The MVP is broken into 4 sequential phases. Each phase delivers a functional sli
 
 ---
 
-## Phase 1 — Foundation & Infrastructure
+## Phase 1 — Foundation & Infrastructure ✅
 
 **Goal:** Project scaffolding, database setup, environment configuration, and base Express/React apps running.
 
 ### Tasks
 
 #### Backend
-- [ ] Initialize `server/` with Node.js + Express
-- [ ] Configure `package.json` with all dependencies
-- [ ] Set up `.env` with `DATABASE_URL`, `GROQ_API_KEY`, `PORT`
-- [ ] Create `server/src/config/db.js` — PostgreSQL connection pool
-- [ ] Create `server/src/config/env.js` — validate required env vars on startup
-- [ ] Create `server/src/app.js` — Express app setup with middleware
-- [ ] Create `server/src/server.js` — HTTP server entry point
-- [ ] Add global error middleware in `server/src/middlewares/error.middleware.js`
-- [ ] Set up logger utility in `server/src/utils/logger.js`
+- [x] Initialize `server/` with Node.js + Express
+- [x] Configure `package.json` with all dependencies
+- [x] Set up `.env` with `DATABASE_URL`, `GROQ_API_KEY`, `PORT`
+- [x] Create `server/src/config/db.js` — PostgreSQL connection pool
+- [x] Create `server/src/config/env.js` — validate required env vars on startup
+- [x] Create `server/src/app.js` — Express app setup with middleware
+- [x] Create `server/src/server.js` — HTTP server entry point
+- [x] Add global error middleware in `server/src/middlewares/error.middleware.js`
+- [x] Set up logger utility in `server/src/utils/logger.js`
 
 #### Database
-- [ ] Run PostgreSQL locally via Docker
-- [ ] Enable pgvector extension: `CREATE EXTENSION IF NOT EXISTS vector;`
-- [ ] Create `documents` table
-- [ ] Create `document_chunks` table with `VECTOR(768)` column
-- [ ] Create `suggestions` table
-- [ ] Add ivfflat index on `document_chunks.embedding`
-- [ ] Add foreign key indexes on `document_id` columns
+- [x] Run PostgreSQL locally via Docker
+- [x] Enable pgvector extension: `CREATE EXTENSION IF NOT EXISTS vector;`
+- [x] Create `documents` table
+- [x] Create `document_chunks` table with `VECTOR(384)` column
+- [x] Create `suggestions` table
+- [x] Add ivfflat index on `document_chunks.embedding`
+- [x] Add foreign key indexes on `document_id` columns
 
 #### Frontend
-- [ ] Initialize `client/` with Vite + React + TypeScript
-- [ ] Install Tailwind CSS, Axios, React Router v6, Lucide React
-- [ ] Configure `client/.env` with `VITE_API_BASE_URL`
-- [ ] Create `src/styles/tokens.css` with all CSS custom properties
-- [ ] Scaffold `App.jsx` with basic router setup
-- [ ] Create `src/services/api.js` with Axios base configuration
+- [x] Initialize `client/` with Vite + React + TypeScript
+- [x] Install Tailwind CSS, Axios, React Router v6
+- [x] Configure `client/.env` with `VITE_API_BASE_URL`
+- [x] Create `src/styles/tokens.css` with all CSS custom properties
+- [x] Scaffold `App.jsx` with basic router setup
+- [x] Create `src/services/api.js` with Axios base configuration
 
-**Exit Criteria:** Both client and server start without errors. DB tables exist and are queryable.
+**Exit Criteria:** Both client and server start without errors. DB tables exist and are queryable. ✅
 
 ---
 
-## Phase 2 — Document Upload & Processing Pipeline
+## Phase 2 — Document Upload & Processing Pipeline ✅
 
 **Goal:** End-to-end document upload: file → text → chunks → embeddings → DB → suggestions.
 
 ### Tasks
 
 #### Backend
-- [ ] Install multer, pdf-parse, mammoth, sentence-transformers (or equivalent)
-- [ ] Implement `utils/chunking.js` — split text into 500–800 token chunks with overlap
-- [ ] Implement `document.service.js` — `extractText()` and `chunkText()`
-- [ ] Implement `embedding.service.js` — `generateEmbedding(text)` returning 768-dim vector
-- [ ] Implement `suggestion.service.js` — `generateSuggestions(summary)` via Groq
-- [ ] Implement `document.repository.js` — insert document, insert chunks, insert suggestions, update status
-- [ ] Implement `upload.controller.js` — validate file, delegate to services
-- [ ] Create `upload.routes.js` — mount `POST /api/upload`
-- [ ] Handle all error cases: empty doc, bad type, size limit, processing failure
-- [ ] Write unit tests for `chunking.js`
-- [ ] Write unit tests for `document.service.js`
-- [ ] Write unit tests for `embedding.service.js`
-- [ ] Write integration test for `POST /api/upload`
+- [x] Install multer, pdf-parse, mammoth, @xenova/transformers
+- [x] Implement `utils/chunking.js` — split text into 500–800 token chunks with overlap
+- [x] Implement `document.service.js` — `extractText()` and `chunkText()`
+- [x] Implement `embedding.service.js` — `generateEmbedding(text)` returning 384-dim vector
+- [x] Implement `suggestion.service.js` — `generateSuggestions(summary)` via multi-provider LLM
+- [x] Implement `document.repository.js` — insert document, insert chunks, insert suggestions, update status
+- [x] Implement `upload.controller.js` — validate file, delegate to services
+- [x] Create `upload.routes.js` — mount `POST /api/upload`
+- [x] Handle all error cases: empty doc, bad type, size limit, processing failure
+- [x] Write unit tests for `chunking.js`
+- [x] Write unit tests for `document.service.js`
+- [x] Write unit tests for `embedding.service.js`
+- [x] Write integration test for `POST /api/upload`
 
 #### Frontend
-- [ ] Build `Upload/Upload.jsx` — click-to-upload + drag-and-drop
-- [ ] Show upload status: uploading → processing → ready / failed
-- [ ] Wire to `POST /api/upload` via `services/api.js`
-- [ ] Write `Upload.test.jsx`
+- [x] Build `Upload/Upload.jsx` — click-to-upload + drag-and-drop
+- [x] Show upload status: uploading → processing → ready / failed
+- [x] Wire to `POST /api/upload` via `services/api.js`
+- [x] Write `Upload.test.jsx`
 
-**Exit Criteria:** Upload a PDF/DOCX/TXT → file processed → chunks and embeddings stored in DB → suggestions stored → response returned to frontend.
+**Exit Criteria:** Upload a PDF/DOCX/TXT → file processed → chunks and embeddings stored in DB → suggestions stored → response returned to frontend. ✅
 
 ---
 
@@ -85,9 +85,9 @@ The MVP is broken into 4 sequential phases. Each phase delivers a functional sli
 - [ ] Implement `search.service.js` — `similaritySearch(vector)` returning top-5 chunks
 - [ ] Implement `chat.controller.js` — validate query, call embedding + search + LLM
 - [ ] Build LLM prompt with system instruction + context chunks + user query
-- [ ] Call Groq API and return answer
+- [ ] Call LLM via multi-provider service and return answer
 - [ ] Return structured response: `{ answer, sources[] }`
-- [ ] Handle: no match → "No relevant data found", Groq failure → retry once → 503
+- [ ] Handle: no match → "No relevant data found", LLM failure → retry once → 503
 - [ ] Create `chat.routes.js` — mount `POST /api/chat`
 - [ ] Write unit tests for `search.service.js`
 - [ ] Write integration test for `POST /api/chat`
@@ -142,9 +142,9 @@ The MVP is broken into 4 sequential phases. Each phase delivers a functional sli
 
 ## Phase Summary
 
-| Phase | Focus                        | Key Deliverable                                |
-| ----- | ---------------------------- | ---------------------------------------------- |
-| 1     | Foundation & Infrastructure  | Both apps run, DB tables exist                 |
-| 2     | Upload & Processing Pipeline | File → embeddings → DB → suggestions           |
-| 3     | RAG Query Pipeline           | Query → vector search → LLM answer → citations |
-| 4     | Sidebar, Polish & E2E        | Full UI + all tests passing + deployed         |
+| Phase | Focus                        | Key Deliverable                                | Status |
+| ----- | ---------------------------- | ---------------------------------------------- | ------ |
+| 1     | Foundation & Infrastructure  | Both apps run, DB tables exist                 | ✅ Done |
+| 2     | Upload & Processing Pipeline | File → embeddings → DB → suggestions           | ✅ Done |
+| 3     | RAG Query Pipeline           | Query → vector search → LLM answer → citations | 🔄 Next |
+| 4     | Sidebar, Polish & E2E        | Full UI + all tests passing + deployed         | ⏳ Pending |

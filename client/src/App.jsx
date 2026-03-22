@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import './styles/tokens.css';
+import Upload from './components/Upload/Upload.jsx';
 
 function App() {
   return (
@@ -8,18 +9,13 @@ function App() {
         <Route
           path="/"
           element={
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                height: '100vh',
-                fontFamily: 'var(--font-sans)',
-                color: 'var(--text-primary)',
-                fontSize: '18px',
-              }}
-            >
-              Knowbase — Phase 1 complete
+            <div className="min-h-screen bg-surface font-sans flex flex-col items-center justify-center px-xl">
+              <h1 className="text-2xl font-semibold text-base mb-xl tracking-tight">
+                Knowbase
+              </h1>
+              <div className="w-full max-w-lg">
+                <Upload onUploadSuccess={(res) => console.log('Uploaded:', res)} />
+              </div>
             </div>
           }
         />

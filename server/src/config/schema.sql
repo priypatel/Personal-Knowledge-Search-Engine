@@ -3,7 +3,7 @@ CREATE EXTENSION IF NOT EXISTS vector;
 CREATE TABLE IF NOT EXISTS documents (
   id         SERIAL PRIMARY KEY,
   name       VARCHAR(255) NOT NULL,
-  file_type  VARCHAR(10)  NOT NULL,
+  file_type  VARCHAR(100) NOT NULL,
   file_size  INTEGER,
   status     VARCHAR(20)  NOT NULL DEFAULT 'processing',
   created_at TIMESTAMP    NOT NULL DEFAULT NOW()
