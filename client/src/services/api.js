@@ -23,10 +23,11 @@ export const uploadDocument = (file) => {
 /**
  * Send a chat query to the RAG pipeline.
  * @param {string} query
+ * @param {number|null} documentId - restrict search to this document when provided
  * @returns {Promise<{answer, sources}>}
  */
-export const sendChat = (query) =>
-  api.post('/chat', { query }).then((res) => res.data);
+export const sendChat = (query, documentId = null) =>
+  api.post('/chat', { query, documentId }).then((res) => res.data);
 
 /**
  * Get AI-generated suggestions for a document.
