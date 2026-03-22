@@ -18,20 +18,53 @@ The project uses two separate environment files:
 # Database
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/knowbase
 
-# AI / LLM
-GROQ_API_KEY=your_groq_api_key_here
-
 # Server
 PORT=5000
 NODE_ENV=development
+
+# LLM Providers — add at least ONE key.
+# System auto-routes: Groq → DeepSeek → Gemini (priority order).
+# On 429 rate-limit the provider cools down 60s and the next is tried.
+
+# Groq (fastest, free 30 RPM) — https://console.groq.com
+GROQ_API_KEY=your_groq_api_key_here
+
+# DeepSeek (free tier) — https://platform.deepseek.com
+DEEPSEEK_API_KEY=your_deepseek_api_key_here
+
+# Google Gemini Flash (free 15 RPM / 1500 RPD) — https://aistudio.google.com/app/apikey
+GEMINI_API_KEY=your_gemini_api_key_here
 ```
 
-| Variable     | Required | Description                                        |
-| ------------ | -------- | -------------------------------------------------- |
-| DATABASE_URL | Yes      | Full PostgreSQL connection string                  |
-| GROQ_API_KEY | Yes      | API key from console.groq.com                      |
-| PORT         | Yes      | Port the Express server listens on (default: 5000) |
-| NODE_ENV     | No       | `development` or `production`                      |
+| Variable         | Required          | Description                                        |
+| ---------------- | ----------------- | -------------------------------------------------- |
+| DATABASE_URL     | Yes               | Full PostgreSQL connection string                  |
+| PORT             | Yes               | Port the Express server listens on (default: 5000) |
+| NODE_ENV         | No                | `development` or `production`                      |
+| GROQ_API_KEY     | At least one LLM  | API key from console.groq.com                      |
+| DEEPSEEK_API_KEY | At least one LLM  | API key from platform.deepseek.com                 |
+| GEMINI_API_KEY   | At least one LLM  | API key from aistudio.google.com                   |
+
+> **Rule:** At least one of `GROQ_API_KEY`, `DEEPSEEK_API_KEY`, `GEMINI_API_KEY` must be set. Server fails fast on startup otherwise.
+
+---
+
+## LLM Provider Auto-Switching
+
+All LLM calls route through `server/src/services/llm.service.js`:
+
+| Priority | Provider  | Model              | Free Limits         |
+| -------- | --------- | ------------------ | ------------------- |
+| 1        | Groq      | llama3-8b-8192     | 30 RPM / 14,400 RPD |
+| 2        | DeepSeek  | deepseek-chat      | ~60 RPM (free tier) |
+| 3        | Gemini    | gemini-1.5-flash   | 15 RPM / 1,500 RPD  |
+
+**Switching logic:**
+- Try Groq first (fastest inference)
+- On `429` → 60s cooldown → try DeepSeek
+- On DeepSeek `429` → try Gemini
+- Non-rate-limit errors → skip provider for current request only
+- All fail → 503
 
 ---
 

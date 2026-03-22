@@ -17,10 +17,13 @@
 │  │  (routes)  │→ │  (business logic)│→ │  (DB access)     │  │
 │  └────────────┘  └────────┬────────┘  └────────┬─────────┘  │
 │                           │                    │             │
-│                    ┌──────▼──────┐             │             │
-│                    │  Groq API   │             │             │
-│                    │    (LLM)    │             │             │
-│                    └─────────────┘             │             │
+│                  ┌────────▼──────────────┐     │             │
+│                  │    llm.service.js      │     │             │
+│                  │  Auto-failover:        │     │             │
+│                  │  1. Groq (primary)     │     │             │
+│                  │  2. DeepSeek (fallback)│     │             │
+│                  │  3. Gemini (fallback)  │     │             │
+│                  └────────────────────────┘     │             │
 └────────────────────────────────────────────────┼────────────┘
                                                  │ SQL + pgvector
 ┌────────────────────────────────────────────────▼────────────┐
@@ -158,9 +161,11 @@ HTTP GET /api/suggestions?documentId=<id>
 
 | Service             | Provider           | Purpose                                      |
 | ------------------- | ------------------ | -------------------------------------------- |
-| LLM (inference)     | Groq API           | Answer generation + suggestion generation    |
-| Embedding model     | sentence-transformers | Generate 768-dim vectors for text         |
-| Database            | Neon (prod) / Docker (local) | PostgreSQL + pgvector storage   |
+| LLM (primary)       | Groq (llama3-8b-8192)          | Answer + suggestions, 30 RPM free           |
+| LLM (fallback 1)    | DeepSeek (deepseek-chat)       | Auto-used on Groq rate-limit                |
+| LLM (fallback 2)    | Gemini (gemini-1.5-flash)      | Auto-used on DeepSeek rate-limit            |
+| Embedding model     | @xenova/transformers (local)   | Generate 384-dim vectors — no API cost      |
+| Database            | Neon (prod) / Docker (local)   | PostgreSQL + pgvector storage               |
 | Frontend hosting    | Vercel             | Static React build deployment                |
 | Backend hosting     | Render             | Node.js API server                           |
 
@@ -175,7 +180,8 @@ HTTP GET /api/suggestions?documentId=<id>
 | File size > 10MB             | Reject before upload — return 400             |
 | Embedding generation fails   | Abort pipeline — return 500, mark doc failed  |
 | No vector match found        | Return "No relevant data found" — 200         |
-| Groq API failure             | Retry once — if still fails, return 503       |
+| LLM rate-limit (429)         | Auto-switch provider, 60s cooldown, try next  |
+| All LLM providers fail       | Return 503                                    |
 | DB connection error          | Return 503 with error message                 |
 
 ---
@@ -193,6 +199,6 @@ HTTP GET /api/suggestions?documentId=<id>
 ## Security Constraints
 
 - All secrets in environment variables — never hardcoded
-- API keys: `GROQ_API_KEY`, `DATABASE_URL` loaded from `.env`
+- API keys: `GROQ_API_KEY`, `DEEPSEEK_API_KEY`, `GEMINI_API_KEY`, `DATABASE_URL` in `.env`
 - No user authentication in MVP (single-user system)
 - Input validation on all API endpoints

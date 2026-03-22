@@ -12,8 +12,8 @@ You are building "Knowbase" — a personal document-based RAG search engine.
 ## Project Overview
 - Monorepo: `client/` (React + Vite + TypeScript + Tailwind) and `server/` (Node.js + Express)
 - Database: PostgreSQL + pgvector extension
-- LLM: Groq API
-- Embeddings: sentence-transformers (768-dim vectors)
+- LLM: Multi-provider auto-failover — Groq → DeepSeek → Gemini (all free tiers)
+- Embeddings: @xenova/transformers local model (all-MiniLM-L6-v2, 384-dim, no API cost)
 - Deployment: Vercel (frontend) + Render (backend) + Neon (DB)
 
 ## Your task: Phase 1 — Foundation & Infrastructure
@@ -82,17 +82,21 @@ DevDependencies: jest, supertest, nodemon
 ```
 
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/knowbase
-GROQ_API_KEY=your_groq_api_key_here
 PORT=5000
 NODE_ENV=development
+# Add at least ONE LLM key — system auto-routes Groq → DeepSeek → Gemini
+GROQ_API_KEY=your_groq_api_key_here
+DEEPSEEK_API_KEY=your_deepseek_api_key_here
+GEMINI_API_KEY=your_gemini_api_key_here
 
 ````
 
 ### server/src/config/env.js
 - Import dotenv and call config()
-- Define required vars: DATABASE_URL, GROQ_API_KEY, PORT
-- On startup, check each — if missing, throw Error with the variable name
-- Export all vars
+- Always required: DATABASE_URL, PORT — throw Error with var name if missing
+- LLM keys: require at least one of GROQ_API_KEY, DEEPSEEK_API_KEY, GEMINI_API_KEY
+  — throw Error('At least one LLM API key required: GROQ_API_KEY | DEEPSEEK_API_KEY | GEMINI_API_KEY') if none set
+- Export: DATABASE_URL, PORT, NODE_ENV, GROQ_API_KEY (or null), DEEPSEEK_API_KEY (or null), GEMINI_API_KEY (or null)
 
 ### server/src/config/db.js
 - Create a pg Pool using DATABASE_URL from env
@@ -358,7 +362,7 @@ Generate ALL files listed below with complete, working code. Do not skip any fil
 
 IMPORTANT: Use @xenova/transformers for embeddings. Update the DB schema column to VECTOR(384) to match. The scoring-engine-spec says 768 but @xenova/transformers all-MiniLM-L6-v2 outputs 384. Use 384.
 
-- LLM for suggestions: Groq API (groq-sdk package)
+- LLM for suggestions: llm.service.js (multi-provider — do NOT call groq-sdk directly)
 - DB: pg (already set up in db.js)
 
 ---
@@ -367,7 +371,30 @@ IMPORTANT: Use @xenova/transformers for embeddings. Update the DB schema column 
 
 ### server/package.json (update — add new deps)
 
-Add: pdf-parse, mammoth, @xenova/transformers, groq-sdk, uuid
+Add: pdf-parse, mammoth, @xenova/transformers, groq-sdk, openai, @google/generative-ai, uuid
+
+### server/src/config/providers.js (NEW — already created in Phase 1 update)
+
+Export:
+- PROVIDER_PRIORITY = ['groq', 'deepseek', 'gemini']
+- PROVIDER_MODELS = { groq: 'llama3-8b-8192', deepseek: 'deepseek-chat', gemini: 'gemini-1.5-flash' }
+- COOLDOWN_MS = 60_000
+- isProviderConfigured(name) — returns true if that provider's API key is in env
+
+### server/src/services/llm.service.js (NEW — already created in Phase 1 update)
+
+Export:
+- llmChat(messages, options?) → Promise<{ content: string, provider: string }>
+  - Tries providers in priority order: groq → deepseek → gemini
+  - 429 → mark provider on 60s cooldown → try next
+  - Other error → skip for this request → try next
+  - All fail → throw Error('All configured LLM providers failed')
+- getProviderStatus() → Array<{ name, configured, available, cooldownUntil }>
+
+Callers:
+- callGroq: uses groq-sdk with GROQ_API_KEY
+- callDeepSeek: uses openai package with baseURL='https://api.deepseek.com' and DEEPSEEK_API_KEY
+- callGemini: uses @google/generative-ai with GEMINI_API_KEY; flatten system+user messages into single prompt
 
 ### server/src/utils/chunking.js
 
@@ -456,21 +483,24 @@ Tests (mock @xenova/transformers):
 Functions:
 
 - generateSuggestions(documentName, summary): Promise<string[]>
-  - Calls Groq API with groq-sdk
-  - Model: 'llama3-8b-8192'
-  - Prompt: "Given this document summary, generate exactly 3 concise questions a user might ask. Return ONLY a JSON array of 3 strings, no explanation."
-  - Parse JSON array from response
+  - Import { llmChat } from './llm.service.js' — do NOT use groq-sdk directly
+  - messages = [
+      { role: 'system', content: 'You generate search questions from document summaries.' },
+      { role: 'user', content: `Given this document summary, generate exactly 3 concise questions a user might ask. Return ONLY a JSON array of 3 strings, no explanation.\n\nSummary: ${summary}` }
+    ]
+  - const { content } = await llmChat(messages, { maxTokens: 256 })
+  - Parse JSON array from content string
   - Return array of 3 question strings
-  - On Groq failure: throw Error('Suggestion generation failed')
+  - On llmChat failure: throw Error('Suggestion generation failed')
 
 ### server/tests/unit/services/suggestion.service.test.js
 
-Tests (mock groq-sdk):
+Tests (mock llm.service.js, NOT groq-sdk):
 
 - Returns array of 3 strings
 - Each string is non-empty
-- Throws on Groq API failure
-- Calls Groq with correct model
+- Throws 'Suggestion generation failed' when llmChat throws
+- Calls llmChat with messages array containing system + user roles
 
 ### server/src/repositories/document.repository.js
 
@@ -606,7 +636,7 @@ Generate ALL files listed below with complete, working code. Do not skip any fil
 
 - Embeddings: @xenova/transformers, Xenova/all-MiniLM-L6-v2, outputs 384-dim vectors
 - Vector search: pgvector with `<=>` cosine distance operator, top-k=5
-- LLM: Groq API with groq-sdk, model: llama3-8b-8192
+- LLM: llm.service.js with auto-failover — Groq (primary) → DeepSeek → Gemini. Do NOT import groq-sdk, openai, or @google/generative-ai directly in controllers/services other than llm.service.js
 - DB: existing pg setup (db.js query helper)
 
 ---
@@ -675,10 +705,11 @@ Handler: sendMessage(req, res, next)
   User: {query}
   ```
 
-- Call Groq API (groq-sdk):
-  - model: 'llama3-8b-8192'
+- Call llmChat (from llm.service.js — do NOT use groq-sdk directly):
+  - import { llmChat } from '../services/llm.service.js'
   - messages: [{role: 'system', content: systemPrompt}, {role: 'user', content: query}]
-  - On failure: retry once after 1 second. If second attempt fails: next(err) with status 503
+  - llm.service.js handles provider auto-switching internally — no retry logic needed here
+  - On llmChat failure: call next(err) with status 503
 - Return 200:
   ```json
   {
@@ -727,7 +758,7 @@ Tests (mock embeddingService and Groq, use real DB with test fixtures):
 - POST /api/chat with empty query → 400
 - POST /api/chat with valid query + no chunks in DB → 200, answer is "No relevant data found"
 - POST /api/chat with valid query + chunks in DB → 200, returns answer + sources array
-- POST /api/chat when Groq fails twice → 503
+- POST /api/chat when llmChat throws (all providers fail) → 503
 
 ### server/tests/integration/suggestion.test.js
 
@@ -1228,6 +1259,10 @@ services:
       - key: DATABASE_URL
         sync: false
       - key: GROQ_API_KEY
+        sync: false
+      - key: DEEPSEEK_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
         sync: false
       - key: PORT
         value: 5000
