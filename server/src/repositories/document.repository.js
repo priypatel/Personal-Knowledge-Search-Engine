@@ -4,12 +4,12 @@ import { query } from '../config/db.js';
  * Insert a new document record (status defaults to 'processing').
  * @returns {Promise<{id: number}>}
  */
-export async function insertDocument(name, fileType, fileSize) {
+export async function insertDocument(name, fileType, fileSize, userId = null) {
   const result = await query(
-    `INSERT INTO documents (name, file_type, file_size, status)
-     VALUES ($1, $2, $3, 'processing')
+    `INSERT INTO documents (user_id, name, file_type, file_size, status)
+     VALUES ($1, $2, $3, $4, 'processing')
      RETURNING id`,
-    [name, fileType, fileSize]
+    [userId, name, fileType, fileSize]
   );
   return { id: result.rows[0].id };
 }

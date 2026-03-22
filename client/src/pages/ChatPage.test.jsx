@@ -1,7 +1,27 @@
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
 import ChatPage from './ChatPage.jsx';
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
+
+jest.mock('../contexts/AuthContext.jsx', () => ({
+  useAuth: () => ({
+    user: { id: 1, email: 'test@test.com', displayName: 'Test User' },
+    logout: jest.fn(),
+  }),
+}));
+
+jest.mock('../services/api.js', () => ({
+  getChats: jest.fn().mockResolvedValue([]),
+  createChat: jest.fn().mockResolvedValue({
+    id: 99,
+    title: 'New Chat',
+    documentId: null,
+    documentName: null,
+    createdAt: new Date().toISOString(),
+    messages: [],
+  }),
+  updateChatTitle: jest.fn().mockResolvedValue({ ok: true }),
+}));
 
 let lastSidebarChats = [];
 
@@ -43,7 +63,6 @@ jest.mock('../components/Chat/Chat.jsx', () => ({
 // Toast is NOT mocked so its real timer fires in the auto-dismiss test
 
 beforeEach(() => {
-  localStorage.clear();
   lastSidebarChats = [];
   jest.clearAllMocks();
 });
@@ -51,70 +70,72 @@ beforeEach(() => {
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe('ChatPage', () => {
-  test('renders without crashing', () => {
+  test('renders without crashing', async () => {
     render(<ChatPage />);
-    expect(screen.getByTestId('chat-page')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId('chat-page')).toBeInTheDocument());
   });
 
-  test('renders Sidebar component', () => {
+  test('renders Sidebar component', async () => {
     render(<ChatPage />);
-    expect(screen.getByTestId('sidebar')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId('sidebar')).toBeInTheDocument());
   });
 
-  test('renders Chat component', () => {
+  test('renders Chat component', async () => {
     render(<ChatPage />);
-    expect(screen.getByTestId('message-input')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId('message-input')).toBeInTheDocument());
   });
 
-  test('upload success creates a new chat', () => {
+  test('upload success creates a new chat', async () => {
+    const { createChat } = require('../services/api.js');
     render(<ChatPage />);
-    fireEvent.click(screen.getByTestId('upload-success-btn'));
-    expect(lastSidebarChats.length).toBeGreaterThan(0);
-    expect(lastSidebarChats[0].documentId).toBe(1);
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('upload-success-btn'));
+    });
+    expect(createChat).toHaveBeenCalledWith(expect.objectContaining({ documentId: 1 }));
   });
 
-  test('Ctrl+N triggers new chat creation', () => {
+  test('Ctrl+N triggers new chat creation', async () => {
+    const { createChat } = require('../services/api.js');
     render(<ChatPage />);
-    act(() => {
+    await act(async () => {
       fireEvent.keyDown(document, { key: 'n', ctrlKey: true });
     });
-    expect(lastSidebarChats.length).toBeGreaterThan(0);
-    expect(lastSidebarChats[0].title).toBe('New Chat');
+    expect(createChat).toHaveBeenCalled();
   });
 
-  test('/ key does not throw and input remains in DOM', () => {
+  test('/ key does not throw and input remains in DOM', async () => {
     render(<ChatPage />);
-    const input = screen.getByTestId('message-input');
+    const input = await screen.findByTestId('message-input');
     act(() => {
       fireEvent.keyDown(document, { key: '/' });
     });
     expect(input).toBeInTheDocument();
   });
 
-  test('Toast appears on upload error', () => {
+  test('Toast appears on upload error', async () => {
     render(<ChatPage />);
+    await waitFor(() => screen.getByTestId('upload-error-btn'));
     fireEvent.click(screen.getByTestId('upload-error-btn'));
     expect(screen.getByTestId('toast')).toBeInTheDocument();
     expect(screen.getByTestId('toast')).toHaveTextContent('Upload failed');
   });
 
-  test('Toast auto-dismisses after 5 seconds', () => {
+  test('Toast auto-dismisses after 5 seconds', async () => {
     jest.useFakeTimers();
     render(<ChatPage />);
+    await act(async () => {});
 
     fireEvent.click(screen.getByTestId('upload-error-btn'));
     expect(screen.getByTestId('toast')).toBeInTheDocument();
 
-    act(() => {
-      jest.advanceTimersByTime(5001);
-    });
-
+    act(() => { jest.advanceTimersByTime(5001); });
     expect(screen.queryByTestId('toast')).not.toBeInTheDocument();
     jest.useRealTimers();
   });
 
-  test('Toast dismisses on × click', () => {
+  test('Toast dismisses on × click', async () => {
     render(<ChatPage />);
+    await act(async () => {});
     fireEvent.click(screen.getByTestId('upload-error-btn'));
     fireEvent.click(screen.getByTestId('toast-dismiss'));
     expect(screen.queryByTestId('toast')).not.toBeInTheDocument();

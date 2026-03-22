@@ -194,6 +194,7 @@ function InputBar({ value, onChange, onSend, disabled, inputRef, placeholder, on
 
 export default function Chat({
   documentId,
+  chatId = null,
   initialMessages = [],
   onMessageSent,
   onUploadSuccess,
@@ -246,7 +247,7 @@ export default function Chat({
     setIsLoading(true);
 
     try {
-      const data = await sendChat(query, documentId ?? null);
+      const data = await sendChat(query, documentId ?? null, chatId ?? null);
       const resolved = withPlaceholder.map((m) =>
         m.id === placeholder.id
           ? { ...m, content: data.answer, sources: data.sources, searchStatus: null }

@@ -2,7 +2,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 // Always required
-const required = ['DATABASE_URL', 'PORT'];
+const required = ['DATABASE_URL', 'PORT', 'JWT_SECRET'];
 for (const key of required) {
   if (!process.env[key]) {
     throw new Error(`Missing required environment variable: ${key}`);
@@ -21,6 +21,7 @@ if (!hasLLM) {
 export const DATABASE_URL = process.env.DATABASE_URL;
 export const PORT = process.env.PORT;
 export const NODE_ENV = process.env.NODE_ENV || 'development';
+export const JWT_SECRET = process.env.JWT_SECRET;
 
 // LLM provider keys (any combination is valid — unused ones are null)
 export const GROQ_API_KEY = process.env.GROQ_API_KEY || null;

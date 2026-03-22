@@ -1,76 +1,78 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import Chat from '../components/Chat/Chat.jsx';
 import Sidebar from '../components/Sidebar/Sidebar.jsx';
 import Toast from '../components/shared/Toast.jsx';
-
-function loadChats() {
-  try {
-    return JSON.parse(localStorage.getItem('kb_chats') || '[]');
-  } catch {
-    return [];
-  }
-}
+import { getChats, createChat as apiCreateChat, updateChatTitle } from '../services/api.js';
+import { useAuth } from '../contexts/AuthContext.jsx';
 
 export default function ChatPage() {
-  const [chats, setChats] = useState(loadChats);
+  const { user, logout } = useAuth();
+  const [chats, setChats] = useState([]);
   const [activeChatId, setActiveChatId] = useState(null);
-  const [documents, setDocuments] = useState([]);
-  const [toast, setToast] = useState(null); // { message, type }
-  // Tracks the most recently uploaded document — overrides stale chat documentIds
+  const [toast, setToast] = useState(null);
   const [uploadedDocumentId, setUploadedDocumentId] = useState(null);
+  const [chatsLoading, setChatsLoading] = useState(true);
 
   const activeChat = chats.find((c) => c.id === activeChatId) ?? null;
-  // Use the freshly-uploaded doc if available, otherwise fall back to what's stored in the chat
   const effectiveDocumentId = uploadedDocumentId ?? activeChat?.documentId ?? null;
 
-  // Persist chats to localStorage whenever they change
-  useEffect(() => {
-    localStorage.setItem('kb_chats', JSON.stringify(chats));
+  // Derive documents list from chats — persists across logout/login since it
+  // comes from the server-loaded chats, not transient upload state.
+  const documents = useMemo(() => {
+    const seen = new Set();
+    const docs = [];
+    for (const chat of chats) {
+      if (chat.documentId && !seen.has(chat.documentId)) {
+        seen.add(chat.documentId);
+        const ext = (chat.documentName || '').split('.').pop().toLowerCase();
+        docs.push({ id: chat.documentId, name: chat.documentName, fileType: ext });
+      }
+    }
+    return docs;
   }, [chats]);
 
-  const handleNewChat = useCallback(() => {
-    const chat = {
-      id: Date.now().toString(),
-      title: 'New Chat',
-      createdAt: new Date().toISOString(),
-      documentId: null,
-      documentName: null,
-      messages: [],
-    };
-    setChats((prev) => [chat, ...prev]);
-    setActiveChatId(chat.id);
+  // Load chats from server on mount
+  useEffect(() => {
+    getChats()
+      .then(setChats)
+      .catch(() => setToast({ message: 'Failed to load chat history.', type: 'error' }))
+      .finally(() => setChatsLoading(false));
+  }, []);
+
+  const handleNewChat = useCallback(async () => {
+    try {
+      const chat = await apiCreateChat({ title: 'New Chat' });
+      setChats((prev) => [chat, ...prev]);
+      setActiveChatId(chat.id);
+      setUploadedDocumentId(null);
+    } catch {
+      setToast({ message: 'Could not create chat. Please try again.', type: 'error' });
+    }
   }, []);
 
   function handleChatSelect(chat) {
     setActiveChatId(chat.id);
-    // Use the selected chat's own document; clear the upload override
     setUploadedDocumentId(null);
   }
 
-  function handleUploadSuccess(res) {
+  async function handleUploadSuccess(res) {
     const name = res?.name || `Document ${res?.documentId}`;
-    const ext = name.split('.').pop().toLowerCase();
 
     setUploadedDocumentId(res.documentId);
 
-    // Add to documents sidebar (deduplicate)
-    setDocuments((prev) => {
-      if (prev.some((d) => d.id === res.documentId)) return prev;
-      return [...prev, { id: res.documentId, name, fileType: ext }];
-    });
-
-    // Create a new chat session linked to this document
-    const chatId = Date.now().toString();
-    const newChat = {
-      id: chatId,
-      title: name,
-      createdAt: new Date().toISOString(),
-      documentId: res.documentId,
-      documentName: name,
-      messages: [],
-    };
-    setChats((prev) => [newChat, ...prev]);
-    setActiveChatId(chatId);
+    // Create chat session on server — the documents sidebar is derived from
+    // chats automatically via the useMemo above, so no separate documents state needed.
+    try {
+      const chat = await apiCreateChat({
+        title: name,
+        documentId: res.documentId,
+        documentName: name,
+      });
+      setChats((prev) => [chat, ...prev]);
+      setActiveChatId(chat.id);
+    } catch {
+      setToast({ message: 'Could not create chat session. Please try again.', type: 'error' });
+    }
   }
 
   function handleUploadError(message) {
@@ -80,12 +82,11 @@ export default function ChatPage() {
   function handleMessageSent(messages) {
     if (!activeChatId) return;
     const firstUserMsg = messages.find((m) => m.role === 'user');
-    const title = firstUserMsg
-      ? firstUserMsg.content.slice(0, 50)
-      : 'New Chat';
+    const title = firstUserMsg ? firstUserMsg.content.slice(0, 50) : 'New Chat';
     setChats((prev) =>
       prev.map((c) => (c.id === activeChatId ? { ...c, title, messages } : c))
     );
+    updateChatTitle(activeChatId, title).catch(() => {});
   }
 
   // Global keyboard shortcuts
@@ -127,12 +128,16 @@ export default function ChatPage() {
         onChatSelect={handleChatSelect}
         onNewChat={handleNewChat}
         documents={documents}
+        user={user}
+        onLogout={logout}
+        loading={chatsLoading}
       />
 
       <main className="flex-1 flex flex-col overflow-hidden min-w-0">
         <Chat
           key={activeChatId ?? 'default'}
           documentId={effectiveDocumentId}
+          chatId={activeChatId}
           initialMessages={activeChat?.messages ?? []}
           onMessageSent={handleMessageSent}
           onUploadSuccess={handleUploadSuccess}

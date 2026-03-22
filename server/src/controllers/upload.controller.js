@@ -46,7 +46,8 @@ export async function uploadDocument(req, res, next) {
     const { id } = await documentRepository.insertDocument(
       req.file.originalname,
       req.file.mimetype,
-      req.file.size
+      req.file.size,
+      req.user?.id ?? null
     );
     documentId = id;
     logger.info(`Document ${id} created, processing ${chunks.length} chunks`);

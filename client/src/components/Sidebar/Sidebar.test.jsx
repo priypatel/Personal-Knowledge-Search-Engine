@@ -3,6 +3,7 @@ import Sidebar from './Sidebar.jsx';
 
 jest.mock('lucide-react', () => ({
   Plus: () => <svg data-testid="plus-icon" />,
+  LogOut: () => <svg data-testid="logout-icon" />,
 }));
 
 jest.mock('../shared/Badge.jsx', () => ({
@@ -144,6 +145,28 @@ describe('Sidebar', () => {
     expect(badges[0]).toHaveTextContent('PDF');
     expect(badges[1]).toHaveTextContent('TXT');
     expect(badges[2]).toHaveTextContent('DOCX');
+  });
+
+  test('renders user profile and logout button when user provided', () => {
+    const mockLogout = jest.fn();
+    render(
+      <Sidebar
+        chats={[]}
+        documents={[]}
+        onChatSelect={mockOnChatSelect}
+        onNewChat={mockOnNewChat}
+        user={{ id: 1, displayName: 'Priy Patel', email: 'priy@test.com' }}
+        onLogout={mockLogout}
+      />
+    );
+    expect(screen.getByText('Priy Patel')).toBeInTheDocument();
+    expect(screen.getByText('priy@test.com')).toBeInTheDocument();
+    // Opens confirmation dialog
+    fireEvent.click(screen.getByTestId('logout-button'));
+    expect(screen.getByTestId('logout-confirm-overlay')).toBeInTheDocument();
+    // Confirming calls onLogout
+    fireEvent.click(screen.getByTestId('logout-confirm'));
+    expect(mockLogout).toHaveBeenCalledTimes(1);
   });
 
   test('returns null when isOpen is false', () => {
