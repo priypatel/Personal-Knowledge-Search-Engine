@@ -132,7 +132,14 @@ export default function Sidebar({
     >
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-4 shrink-0">
-        <span className="text-[15px] font-medium text-base whitespace-nowrap">Knowbase</span>
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded-md bg-primary flex items-center justify-center shrink-0">
+            <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M13 2L4.5 13.5H11L10 22L19.5 10.5H13L13 2Z" />
+            </svg>
+          </div>
+          <span className="text-[15px] font-medium text-base whitespace-nowrap">Recall</span>
+        </div>
         <button
           data-testid="new-chat-button"
           onClick={onNewChat}

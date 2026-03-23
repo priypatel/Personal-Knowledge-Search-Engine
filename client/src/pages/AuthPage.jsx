@@ -8,12 +8,11 @@ function Logo() {
   return (
     <div className="flex items-center gap-2 mb-8">
       <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center shrink-0">
-        <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-            d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
+        <svg className="w-3.5 h-3.5 text-white" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M13 2L4.5 13.5H11L10 22L19.5 10.5H13L13 2Z" />
         </svg>
       </div>
-      <span className="text-[14px] font-semibold text-base tracking-tight">Knowbase</span>
+      <span className="text-[14px] font-semibold text-base tracking-tight">Recall</span>
     </div>
   );
 }
@@ -200,12 +199,11 @@ export default function AuthPage() {
               {/* Logo — pinned to top */}
               <div className="absolute top-8 left-1/2 -translate-x-1/2 flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
-                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
-                      d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
+                  <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M13 2L4.5 13.5H11L10 22L19.5 10.5H13L13 2Z" />
                   </svg>
                 </div>
-                <span className="text-white text-[15px] font-semibold tracking-tight">Knowbase</span>
+                <span className="text-white text-[15px] font-semibold tracking-tight">Recall</span>
               </div>
 
               {/* Centered content */}
@@ -229,12 +227,11 @@ export default function AuthPage() {
               {/* Logo — pinned to top */}
               <div className="absolute top-8 left-1/2 -translate-x-1/2 flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
-                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8}
-                      d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
+                  <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M13 2L4.5 13.5H11L10 22L19.5 10.5H13L13 2Z" />
                   </svg>
                 </div>
-                <span className="text-white text-[15px] font-semibold tracking-tight">Knowbase</span>
+                <span className="text-white text-[15px] font-semibold tracking-tight">Recall</span>
               </div>
 
               {/* Centered content */}
