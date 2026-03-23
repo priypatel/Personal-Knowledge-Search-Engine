@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Search, SendHorizontal, Paperclip, Copy, Check } from 'lucide-react';
-import { sendChat, uploadDocument } from '../../services/api.js';
+import { sendChat, uploadDocument, createChat } from '../../services/api.js';
 import Suggestions from '../Suggestions/Suggestions.jsx';
 import Upload from '../Upload/Upload.jsx';
 
@@ -32,6 +32,20 @@ function SkeletonLoader() {
   );
 }
 
+// ─── Search Status ─────────────────────────────────────────────────────────────
+
+function SearchStatus({ text }) {
+  return (
+    <div className="flex items-center gap-2 mb-3">
+      <div
+        className="w-3.5 h-3.5 rounded-full border-2 border-primary-light border-t-primary shrink-0"
+        style={{ animation: 'kb-spin 1s linear infinite' }}
+      />
+      <span className="text-xs text-primary">{text}</span>
+    </div>
+  );
+}
+
 // ─── Citation Pills ───────────────────────────────────────────────────────────
 
 function CitationPills({ sources }) {
@@ -44,14 +58,16 @@ function CitationPills({ sources }) {
     return true;
   });
 
+  const firstDocId = unique[0]?.documentId;
+
   return (
-    <div className="flex gap-1.5 flex-wrap mt-2">
+    <div className="flex gap-1.5 flex-nowrap overflow-x-auto md:flex-wrap mt-2 pb-1">
       {unique.map((s, i) => (
         <span
           key={s.chunkId}
           data-testid="citation-pill"
-          className={`px-2.5 py-1 rounded-md text-[11px] font-medium ${
-            i === 0
+          className={`px-2.5 py-1 rounded-[6px] text-[11px] font-medium shrink-0 transition-all duration-150 hover:brightness-90 ${
+            s.documentId === firstDocId
               ? 'bg-primary-light text-primary-dark'
               : 'bg-[#E1F5EE] text-[#085041]'
           }`}
@@ -138,7 +154,7 @@ function InputBar({ value, onChange, onSend, disabled, inputRef, placeholder, on
   const canSend = value.trim().length > 0 && !disabled;
 
   return (
-    <div className="border border-border-strong rounded-xl px-4 pt-3 pb-2.5 bg-surface">
+    <div className="border-[0.5px] border-border-strong rounded-xl px-[10px] pt-[10px] pb-[10px] md:px-4 md:pt-3 md:pb-2.5 bg-surface">
       <textarea
         ref={inputRef}
         data-testid="message-input"
@@ -178,7 +194,7 @@ function InputBar({ value, onChange, onSend, disabled, inputRef, placeholder, on
             type="button"
             onClick={onSend}
             disabled={!canSend}
-            className={`w-8 h-8 rounded-full bg-primary border-none flex items-center justify-center shrink-0 transition-opacity duration-150 ${
+            className={`w-8 h-8 rounded-full bg-primary border-none flex items-center justify-center shrink-0 transition-[opacity,transform] duration-150 active:scale-95 ${
               canSend ? 'opacity-100 cursor-pointer' : 'opacity-40 cursor-not-allowed'
             }`}
           >
@@ -197,6 +213,7 @@ export default function Chat({
   chatId = null,
   initialMessages = [],
   onMessageSent,
+  onChatCreated,
   onUploadSuccess,
   onUploadError,
   documentName = null,
@@ -247,14 +264,21 @@ export default function Chat({
     setIsLoading(true);
 
     try {
-      const data = await sendChat(query, documentId ?? null, chatId ?? null);
+      // If no chat session exists yet, create one now (first message in a new chat)
+      let resolvedChatId = chatId ?? null;
+      if (!resolvedChatId) {
+        const newChat = await createChat({ title: query.slice(0, 50) });
+        resolvedChatId = newChat.id;
+        onChatCreated?.(newChat);
+      }
+      const data = await sendChat(query, documentId ?? null, resolvedChatId);
       const resolved = withPlaceholder.map((m) =>
         m.id === placeholder.id
           ? { ...m, content: data.answer, sources: data.sources, searchStatus: null }
           : m
       );
       setMessages(resolved);
-      onMessageSent?.(resolved);
+      onMessageSent?.(resolved, resolvedChatId);
     } catch (err) {
       const content = !err.response
         ? 'Connection issue. Please try again.'
@@ -263,7 +287,7 @@ export default function Chat({
         m.id === placeholder.id ? { ...m, content, searchStatus: null } : m
       );
       setMessages(errored);
-      onMessageSent?.(errored);
+      onMessageSent?.(errored, resolvedChatId);
     } finally {
       setIsLoading(false);
     }
@@ -289,22 +313,27 @@ export default function Chat({
     return (
       <div
         data-testid="landing-view"
-        className="flex flex-col items-center justify-center gap-4 p-[40px_24px] text-center h-full"
+        className="flex flex-col items-center justify-center p-[40px_24px] text-center h-full relative"
       >
         <Search size={48} className="text-primary" />
-        <h2 className="text-[22px] font-medium text-base m-0">
+
+        {/* 24px gap: icon → heading */}
+        <h2 className="text-[22px] font-medium text-base m-0 mt-6">
           What do you want to know?
         </h2>
-        <p className="text-sm text-muted m-0">
+
+        {/* 6px gap: heading → subtitle */}
+        <p className="text-sm text-muted m-0 mt-[6px]">
           Search across your documents with AI-powered answers.
         </p>
 
-        {/* Upload zone */}
-        <div className="w-full max-w-[480px]">
+        {/* 32px gap: subtitle → upload zone */}
+        <div className="w-full max-w-[480px] mt-8">
           <Upload onUploadSuccess={onUploadSuccess} onUploadError={onUploadError} />
         </div>
 
-        <div className="w-full max-w-[520px]">
+        {/* Input bar — tight below upload */}
+        <div className="w-full max-w-[520px] mt-3">
           <InputBar
             value={inputValue}
             onChange={setInputValue}
@@ -314,9 +343,13 @@ export default function Chat({
           />
         </div>
 
-        <Suggestions documentId={documentId} onSuggestionClick={handleSuggestionClick} />
+        {/* 16px gap: input bar → suggestions */}
+        <div className="mt-4 w-full max-w-[520px]">
+          <Suggestions documentId={documentId} onSuggestionClick={handleSuggestionClick} />
+        </div>
 
-        <p className="text-xs text-faint mt-2">Press / to focus search</p>
+        {/* Keyboard hint pinned to bottom per spec */}
+        <p className="absolute bottom-4 text-xs text-faint m-0">Press / to focus search</p>
       </div>
     );
   }
@@ -344,7 +377,7 @@ export default function Chat({
       <div
         role="log"
         aria-live="polite"
-        className="flex-1 overflow-y-auto p-[24px_24px_16px]"
+        className="flex-1 overflow-y-auto p-3 md:p-[24px_24px_16px]"
       >
         {messages.map((msg) => {
           if (msg.role === 'user') {
@@ -352,7 +385,7 @@ export default function Chat({
               <div key={msg.id} className="flex justify-end mb-5">
                 <div
                   data-testid="user-message"
-                  className="bg-primary text-white rounded-[16px_16px_4px_16px] max-w-[420px] px-4 py-3 text-sm"
+                  className="bg-primary text-white rounded-[16px_16px_4px_16px] max-w-[85vw] md:max-w-[420px] px-4 py-3 text-sm"
                 >
                   {msg.content}
                 </div>
@@ -368,9 +401,10 @@ export default function Chat({
 
           return (
             <div key={msg.id} className="flex justify-start mb-5">
-              <div className="max-w-[520px] w-full">
+              <div className="max-full md:max-w-[520px] w-full">
                 {msg.searchStatus ? (
                   <div data-testid="search-status">
+                    <SearchStatus text={msg.searchStatus} />
                     <SkeletonLoader />
                   </div>
                 ) : (
@@ -401,7 +435,7 @@ export default function Chat({
       </div>
 
       {/* Pinned input bar */}
-      <div className="px-6 pb-6 pt-2 shrink-0">
+      <div className="px-3 pb-4 pt-2 md:px-6 md:pb-6 shrink-0">
         <InputBar
           value={inputValue}
           onChange={setInputValue}

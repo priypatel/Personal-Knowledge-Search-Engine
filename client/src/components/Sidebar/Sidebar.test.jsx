@@ -4,6 +4,8 @@ import Sidebar from './Sidebar.jsx';
 jest.mock('lucide-react', () => ({
   Plus: () => <svg data-testid="plus-icon" />,
   LogOut: () => <svg data-testid="logout-icon" />,
+  Search: () => <svg data-testid="search-icon" />,
+  Pencil: () => <svg data-testid="pencil-icon" />,
 }));
 
 jest.mock('../shared/Badge.jsx', () => ({
@@ -11,6 +13,9 @@ jest.mock('../shared/Badge.jsx', () => ({
   default: ({ type, children }) => (
     <span data-testid="file-badge" data-type={type}>{children}</span>
   ),
+}));
+jest.mock('../../services/api.js', () => ({
+  searchChats: jest.fn().mockResolvedValue([]),
 }));
 
 const mockOnChatSelect = jest.fn();
@@ -69,7 +74,7 @@ describe('Sidebar', () => {
         onNewChat={mockOnNewChat}
       />
     );
-    expect(screen.getByText(/No documents uploaded yet/i)).toBeInTheDocument();
+    expect(screen.getByText(/Upload your first document to get started/i)).toBeInTheDocument();
   });
 
   test('renders chat items in correct date group (TODAY)', () => {
@@ -169,7 +174,7 @@ describe('Sidebar', () => {
     expect(mockLogout).toHaveBeenCalledTimes(1);
   });
 
-  test('returns null when isOpen is false', () => {
+  test('sidebar is hidden via CSS transform when isOpen is false', () => {
     render(
       <Sidebar
         chats={sampleChats}
@@ -179,6 +184,8 @@ describe('Sidebar', () => {
         isOpen={false}
       />
     );
-    expect(screen.queryByTestId('sidebar')).not.toBeInTheDocument();
+    const sidebar = screen.getByTestId('sidebar');
+    expect(sidebar).toBeInTheDocument();
+    expect(sidebar.className).toContain('-translate-x-full');
   });
 });

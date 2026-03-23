@@ -65,6 +65,28 @@ export async function getChatsByUserId(userId) {
 }
 
 /**
+ * Search chats by title for a user (case-insensitive).
+ */
+export async function searchChatsByUserId(userId, q) {
+  const result = await query(
+    `SELECT id, title, document_id, document_name, created_at
+     FROM chats
+     WHERE user_id = $1 AND title ILIKE $2
+     ORDER BY created_at DESC
+     LIMIT 50`,
+    [userId, `%${q}%`]
+  );
+  return result.rows.map((row) => ({
+    id: row.id,
+    title: row.title,
+    documentId: row.document_id,
+    documentName: row.document_name,
+    createdAt: row.created_at,
+    messages: [],
+  }));
+}
+
+/**
  * Update a chat's title.
  */
 export async function updateChatTitle(chatId, userId, title) {

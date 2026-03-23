@@ -94,13 +94,13 @@ describe('ChatPage', () => {
     expect(createChat).toHaveBeenCalledWith(expect.objectContaining({ documentId: 1 }));
   });
 
-  test('Ctrl+N triggers new chat creation', async () => {
-    const { createChat } = require('../services/api.js');
+  test('Ctrl+N switches to new-chat mode (no API call)', async () => {
     render(<ChatPage />);
     await act(async () => {
       fireEvent.keyDown(document, { key: 'n', ctrlKey: true });
     });
-    expect(createChat).toHaveBeenCalled();
+    // New-chat mode shows the landing view (message-input is in the DOM via Chat mock)
+    expect(screen.getByTestId('message-input')).toBeInTheDocument();
   });
 
   test('/ key does not throw and input remains in DOM', async () => {

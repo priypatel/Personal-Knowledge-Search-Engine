@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Menu } from 'lucide-react';
 import Chat from '../components/Chat/Chat.jsx';
 import Sidebar from '../components/Sidebar/Sidebar.jsx';
 import Toast from '../components/shared/Toast.jsx';
@@ -9,15 +10,18 @@ export default function ChatPage() {
   const { user, logout } = useAuth();
   const [chats, setChats] = useState([]);
   const [activeChatId, setActiveChatId] = useState(null);
+  // chatKey controls Chat remounting. Separate from activeChatId so that
+  // lazily assigning a real chatId (on first message) does NOT remount Chat.
+  const [chatKey, setChatKey] = useState('default');
   const [toast, setToast] = useState(null);
   const [uploadedDocumentId, setUploadedDocumentId] = useState(null);
   const [chatsLoading, setChatsLoading] = useState(true);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const activeChat = chats.find((c) => c.id === activeChatId) ?? null;
   const effectiveDocumentId = uploadedDocumentId ?? activeChat?.documentId ?? null;
 
-  // Derive documents list from chats — persists across logout/login since it
-  // comes from the server-loaded chats, not transient upload state.
+  // Derive documents list from chats
   const documents = useMemo(() => {
     const seen = new Set();
     const docs = [];
@@ -39,29 +43,34 @@ export default function ChatPage() {
       .finally(() => setChatsLoading(false));
   }, []);
 
-  const handleNewChat = useCallback(async () => {
-    try {
-      const chat = await apiCreateChat({ title: 'New Chat' });
-      setChats((prev) => [chat, ...prev]);
-      setActiveChatId(chat.id);
-      setUploadedDocumentId(null);
-    } catch {
-      setToast({ message: 'Could not create chat. Please try again.', type: 'error' });
-    }
-  }, []);
+  const handleNewChat = useCallback(() => {
+    // Already in new-chat mode — do nothing (prevents duplicate blank entries)
+    if (activeChatId === null && chatKey === 'default') return;
+    setActiveChatId(null);
+    setUploadedDocumentId(null);
+    setChatKey('default');
+    setMobileMenuOpen(false);
+  }, [activeChatId, chatKey]);
+
+  // Called by Chat when it lazily creates a chat on the first message.
+  // Does NOT change chatKey — Chat must NOT remount so the user sees the response.
+  function handleChatCreated(chat) {
+    setChats((prev) => [chat, ...prev]);
+    setActiveChatId(chat.id);
+    // chatKey stays the same — Chat keeps running, user sees the AI response
+  }
 
   function handleChatSelect(chat) {
     setActiveChatId(chat.id);
     setUploadedDocumentId(null);
+    setChatKey(`chat-${chat.id}`); // remount Chat with the selected chat's messages
+    setMobileMenuOpen(false);
   }
 
   async function handleUploadSuccess(res) {
     const name = res?.name || `Document ${res?.documentId}`;
-
     setUploadedDocumentId(res.documentId);
-
-    // Create chat session on server — the documents sidebar is derived from
-    // chats automatically via the useMemo above, so no separate documents state needed.
+    setMobileMenuOpen(false);
     try {
       const chat = await apiCreateChat({
         title: name,
@@ -70,6 +79,7 @@ export default function ChatPage() {
       });
       setChats((prev) => [chat, ...prev]);
       setActiveChatId(chat.id);
+      setChatKey(`chat-${chat.id}`);
     } catch {
       setToast({ message: 'Could not create chat session. Please try again.', type: 'error' });
     }
@@ -79,14 +89,20 @@ export default function ChatPage() {
     setToast({ message: message || 'Upload failed. Please try again.', type: 'error' });
   }
 
-  function handleMessageSent(messages) {
-    if (!activeChatId) return;
+  function handleRenameChat(chatId, title) {
+    setChats((prev) => prev.map((c) => (c.id === chatId ? { ...c, title } : c)));
+  }
+
+  // Chat passes the resolved chatId (may differ from activeChatId during lazy creation)
+  function handleMessageSent(messages, resolvedChatId) {
+    const id = resolvedChatId ?? activeChatId;
+    if (!id) return;
     const firstUserMsg = messages.find((m) => m.role === 'user');
     const title = firstUserMsg ? firstUserMsg.content.slice(0, 50) : 'New Chat';
     setChats((prev) =>
-      prev.map((c) => (c.id === activeChatId ? { ...c, title, messages } : c))
+      prev.map((c) => (c.id === id ? { ...c, title, messages } : c))
     );
-    updateChatTitle(activeChatId, title).catch(() => {});
+    updateChatTitle(id, title).catch(() => {});
   }
 
   // Global keyboard shortcuts
@@ -100,6 +116,10 @@ export default function ChatPage() {
       if (e.key === 'n' && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
         handleNewChat();
+      }
+      if (e.key === 'k' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        document.querySelector('[data-testid="chat-search-input"]')?.focus();
       }
       if (e.key === 'Escape') {
         document.activeElement?.blur();
@@ -122,24 +142,42 @@ export default function ChatPage() {
         />
       )}
 
+      {mobileMenuOpen && (
+        <div
+          className="fixed inset-0 bg-black/30 z-30 lg:hidden"
+          onClick={() => setMobileMenuOpen(false)}
+        />
+      )}
+
+      <button
+        className="fixed top-3.5 left-3.5 z-20 lg:hidden w-8 h-8 flex items-center justify-center rounded-md bg-surface border border-border-default"
+        onClick={() => setMobileMenuOpen(true)}
+        aria-label="Open menu"
+      >
+        <Menu size={16} className="text-base" />
+      </button>
+
       <Sidebar
         chats={chats}
         activeChat={activeChat}
         onChatSelect={handleChatSelect}
         onNewChat={handleNewChat}
+        onRenameChat={handleRenameChat}
         documents={documents}
         user={user}
         onLogout={logout}
         loading={chatsLoading}
+        isOpen={mobileMenuOpen}
       />
 
-      <main className="flex-1 flex flex-col overflow-hidden min-w-0">
+      <main className="flex-1 flex flex-col overflow-hidden min-w-0 bg-[#f5f4ed]">
         <Chat
-          key={activeChatId ?? 'default'}
+          key={chatKey}
           documentId={effectiveDocumentId}
           chatId={activeChatId}
           initialMessages={activeChat?.messages ?? []}
           onMessageSent={handleMessageSent}
+          onChatCreated={handleChatCreated}
           onUploadSuccess={handleUploadSuccess}
           onUploadError={handleUploadError}
           documentName={activeChat?.documentName ?? null}

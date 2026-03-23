@@ -1,6 +1,7 @@
-import { useState } from 'react';
-import { Plus, LogOut } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Plus, LogOut, Search, Pencil } from 'lucide-react';
 import Badge from '../shared/Badge.jsx';
+import { searchChats, updateChatTitle } from '../../services/api.js';
 
 function groupChatsByDate(chats) {
   const now = new Date();
@@ -46,25 +47,88 @@ export default function Sidebar({
   activeChat,
   onChatSelect,
   onNewChat,
+  onRenameChat,
   documents = [],
   user = null,
   onLogout,
   loading = false,
-  isOpen = true,
+  isOpen = false,
 }) {
+  // Delay transition activation to prevent flash on first render
+  const [ready, setReady] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [renamingChatId, setRenamingChatId] = useState(null);
+  const [renameValue, setRenameValue] = useState('');
+  const renameInputRef = useRef(null);
+  const [searchResults, setSearchResults] = useState(null); // null = not searching
+  const [searchLoading, setSearchLoading] = useState(false);
+  const debounceRef = useRef(null);
 
-  if (!isOpen) return null;
+  useEffect(() => {
+    // Allow CSS transitions only after the first paint — prevents slide-in flash on load
+    const id = requestAnimationFrame(() => setReady(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
+
+  // Debounced API search — fires 300ms after the user stops typing
+  useEffect(() => {
+    clearTimeout(debounceRef.current);
+    const q = searchQuery.trim();
+    if (!q) {
+      setSearchResults(null);
+      setSearchLoading(false);
+      return;
+    }
+    setSearchLoading(true);
+    debounceRef.current = setTimeout(() => {
+      searchChats(q)
+        .then((results) => setSearchResults(results))
+        .catch(() => setSearchResults([]))
+        .finally(() => setSearchLoading(false));
+    }, 300);
+    return () => clearTimeout(debounceRef.current);
+  }, [searchQuery]);
+
+  // Auto-focus rename input when entering rename mode
+  useEffect(() => {
+    if (renamingChatId) renameInputRef.current?.focus();
+  }, [renamingChatId]);
+
+  function startRename(chat, e) {
+    e.stopPropagation();
+    setRenamingChatId(chat.id);
+    setRenameValue(chat.title);
+  }
+
+  async function commitRename(chatId) {
+    const title = renameValue.trim();
+    setRenamingChatId(null);
+    if (!title) return;
+    try {
+      await updateChatTitle(chatId, title);
+      onRenameChat?.(chatId, title);
+    } catch {
+      // silently ignore — title reverts in UI on next load
+    }
+  }
+
+  function handleRenameKeyDown(e, chatId) {
+    if (e.key === 'Enter') { e.preventDefault(); commitRename(chatId); }
+    if (e.key === 'Escape') { setRenamingChatId(null); }
+  }
 
   return (
     <>
     <aside
       data-testid="sidebar"
-      className="w-[260px] shrink-0 border-r border-border-default bg-surface flex flex-col h-screen font-sans"
+      className={`shrink-0 border-r border-border-default bg-surface flex flex-col font-sans h-screen w-[260px] fixed left-0 top-0 z-40 lg:relative lg:z-auto lg:translate-x-0 ${
+        ready ? 'transition-transform duration-[250ms] ease-out' : ''
+      } ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}
     >
       {/* Header */}
       <div className="flex items-center justify-between px-3 py-4 shrink-0">
-        <span className="text-[15px] font-medium text-base">Knowbase</span>
+        <span className="text-[15px] font-medium text-base whitespace-nowrap">Knowbase</span>
         <button
           data-testid="new-chat-button"
           onClick={onNewChat}
@@ -78,20 +142,41 @@ export default function Sidebar({
       {/* Separator */}
       <div className="h-px bg-border-default shrink-0" />
 
-      {/* Chats section — scrollable */}
-      <div className="flex-1 overflow-y-auto py-3 min-h-0">
-        <p className="text-[11px] uppercase text-faint px-3 mb-1.5 font-medium tracking-[0.05em] m-0">
-          Chats
-        </p>
+      {/* Search input */}
+      <div className="px-3 py-2 shrink-0">
+        <div className="flex items-center gap-2 bg-muted rounded-md px-2.5 py-1.5">
+          <Search size={13} className="text-faint shrink-0" />
+          <input
+            data-testid="chat-search-input"
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search history..."
+            className="flex-1 bg-transparent text-[13px] text-base placeholder:text-faint outline-none border-none min-w-0"
+          />
+        </div>
+      </div>
 
-        {loading ? (
-          <p className="text-xs text-faint text-center px-3 py-4 m-0">Loading...</p>
-        ) : chats.length === 0 ? (
+      {/* Chats section — scrollable */}
+      <div className="flex-1 overflow-y-auto py-2 min-h-0">
+        {loading || searchLoading ? (
           <p className="text-xs text-faint text-center px-3 py-4 m-0">
-            No conversations yet. Ask your first question.
+            {searchLoading ? 'Searching...' : 'Loading...'}
           </p>
-        ) : (
-          groupChatsByDate(chats).map((group) => (
+        ) : (() => {
+          const displayChats = searchResults !== null ? searchResults : chats;
+
+          if (displayChats.length === 0) {
+            return (
+              <p className="text-xs text-faint text-center px-3 py-4 m-0">
+                {searchResults !== null
+                  ? `No chats match "${searchQuery}".`
+                  : 'No conversations yet. Ask your first question.'}
+              </p>
+            );
+          }
+
+          return groupChatsByDate(displayChats).map((group) => (
             <div key={group.label}>
               <p
                 data-testid="date-group-label"
@@ -102,25 +187,51 @@ export default function Sidebar({
 
               {group.items.map((chat) => {
                 const isActive = activeChat?.id === chat.id;
+                const isRenaming = renamingChatId === chat.id;
                 return (
                   <div
                     key={chat.id}
                     data-testid="chat-history-item"
                     data-active={isActive}
-                    onClick={() => onChatSelect(chat)}
-                    className={`px-3 py-2 rounded-md mx-1 mb-0.5 cursor-pointer text-[13px] overflow-hidden whitespace-nowrap text-ellipsis transition-colors duration-150 ${
+                    onClick={() => !isRenaming && onChatSelect(chat)}
+                    className={`group px-3 py-2 rounded-md mx-1 mb-0.5 cursor-pointer text-[13px] transition-colors duration-150 flex items-center gap-1 ${
                       isActive
                         ? 'bg-muted text-primary'
                         : 'bg-transparent text-base hover:bg-muted'
                     }`}
                   >
-                    {chat.title}
+                    {isRenaming ? (
+                      <input
+                        ref={renameInputRef}
+                        data-testid="rename-input"
+                        value={renameValue}
+                        onChange={(e) => setRenameValue(e.target.value)}
+                        onBlur={() => commitRename(chat.id)}
+                        onKeyDown={(e) => handleRenameKeyDown(e, chat.id)}
+                        onClick={(e) => e.stopPropagation()}
+                        className="flex-1 min-w-0 bg-surface border border-primary rounded px-1.5 py-0.5 text-[13px] text-base outline-none"
+                      />
+                    ) : (
+                      <>
+                        <span className="flex-1 min-w-0 overflow-hidden whitespace-nowrap text-ellipsis">
+                          {chat.title}
+                        </span>
+                        <button
+                          data-testid="rename-button"
+                          onClick={(e) => startRename(chat, e)}
+                          title="Rename"
+                          className="opacity-0 group-hover:opacity-100 shrink-0 w-5 h-5 flex items-center justify-center rounded hover:bg-border-default transition-opacity duration-100 cursor-pointer"
+                        >
+                          <Pencil size={11} className="text-muted" />
+                        </button>
+                      </>
+                    )}
                   </div>
                 );
               })}
             </div>
-          ))
-        )}
+          ));
+        })()}
 
         {/* Separator */}
         <div className="h-px bg-border-default mt-3 mb-0 shrink-0" />
@@ -133,7 +244,7 @@ export default function Sidebar({
 
           {documents.length === 0 ? (
             <p className="text-xs text-faint text-center px-3 py-4 m-0">
-              No documents uploaded yet.
+              Upload your first document to get started.
             </p>
           ) : (
             documents.map((doc) => {
@@ -159,7 +270,7 @@ export default function Sidebar({
       {user && (
         <>
           <div className="h-px bg-border-default shrink-0" />
-          <div className="flex items-center gap-2.5 px-3 py-3 shrink-0">
+          <div className="flex items-center gap-2.5 shrink-0 py-3 px-3">
             {/* Avatar */}
             <div className="w-[30px] h-[30px] rounded-full bg-primary flex items-center justify-center shrink-0">
               <span className="text-[12px] font-medium text-white uppercase">

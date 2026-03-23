@@ -3,6 +3,7 @@ import Chat from './Chat.jsx';
 
 jest.mock('../../services/api.js', () => ({
   sendChat: jest.fn(),
+  createChat: jest.fn().mockResolvedValue({ id: 99, title: 'New Chat', messages: [] }),
   getSuggestions: jest.fn().mockResolvedValue({ suggestions: [] }),
   uploadDocument: jest.fn().mockResolvedValue({ documentId: 1, name: 'test.pdf' }),
 }));
@@ -68,7 +69,7 @@ describe('Chat', () => {
     fireEvent.keyDown(input, { key: 'Enter', shiftKey: false });
 
     await waitFor(() => {
-      expect(sendChat).toHaveBeenCalledWith('What is MERN?', null, null);
+      expect(sendChat).toHaveBeenCalledWith('What is MERN?', null, 99);
     });
   });
 

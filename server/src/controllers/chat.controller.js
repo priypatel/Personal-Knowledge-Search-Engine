@@ -13,6 +13,17 @@ export async function getChats(req, res) {
 }
 
 /**
+ * GET /api/chats/search?q=...
+ * Returns chats whose title matches the query (no messages, for speed).
+ */
+export async function searchChats(req, res) {
+  const q = (req.query.q || '').trim();
+  if (!q) return res.status(200).json([]);
+  const chats = await chatRepo.searchChatsByUserId(req.user.id, q);
+  return res.status(200).json(chats);
+}
+
+/**
  * POST /api/chats
  * Body: { title?, documentId?, documentName? }
  */

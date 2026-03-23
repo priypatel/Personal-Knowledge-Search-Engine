@@ -25,6 +25,9 @@ export const getMe = () =>
 export const getChats = () =>
   api.get('/chats').then((r) => r.data);
 
+export const searchChats = (q) =>
+  api.get('/chats/search', { params: { q } }).then((r) => r.data);
+
 export const createChat = ({ title, documentId, documentName } = {}) =>
   api.post('/chats', { title, documentId, documentName }).then((r) => r.data);
 
