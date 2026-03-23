@@ -2,8 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import './styles/tokens.css';
 import { AuthProvider, useAuth } from './contexts/AuthContext.jsx';
 import ChatPage from './pages/ChatPage.jsx';
-import LoginPage from './pages/LoginPage.jsx';
-import RegisterPage from './pages/RegisterPage.jsx';
+import AuthPage from './pages/AuthPage.jsx';
 
 function AppRoute({ children }) {
   const { loading } = useAuth();
@@ -32,8 +31,8 @@ function App() {
     <BrowserRouter>
       <AuthProvider>
         <Routes>
-          <Route path="/login" element={<GuestRoute><LoginPage /></GuestRoute>} />
-          <Route path="/register" element={<GuestRoute><RegisterPage /></GuestRoute>} />
+          <Route path="/login" element={<GuestRoute><AuthPage /></GuestRoute>} />
+          <Route path="/register" element={<GuestRoute><AuthPage /></GuestRoute>} />
           <Route path="/" element={<AppRoute><ChatPage /></AppRoute>} />
         </Routes>
       </AuthProvider>
