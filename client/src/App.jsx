@@ -3,6 +3,7 @@ import './styles/tokens.css';
 import { AuthProvider, useAuth } from './contexts/AuthContext.jsx';
 import ChatPage from './pages/ChatPage.jsx';
 import AuthPage from './pages/AuthPage.jsx';
+import ResetPasswordPage from './pages/ResetPasswordPage.jsx';
 
 function AppRoute({ children }) {
   const { loading } = useAuth();
@@ -33,6 +34,7 @@ function App() {
         <Routes>
           <Route path="/login" element={<GuestRoute><AuthPage /></GuestRoute>} />
           <Route path="/register" element={<GuestRoute><AuthPage /></GuestRoute>} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/" element={<AppRoute><ChatPage /></AppRoute>} />
         </Routes>
       </AuthProvider>

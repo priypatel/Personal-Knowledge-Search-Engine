@@ -6,6 +6,51 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
+// ── Axios interceptor: auto-refresh on 401 ────────────────────────────────────
+let isRefreshing = false;
+let refreshQueue = []; // callbacks waiting for the new token
+
+api.interceptors.response.use(
+  (res) => res,
+  async (error) => {
+    const original = error.config;
+
+    // Only attempt refresh for 401s that haven't been retried yet,
+    // and never retry the refresh call itself.
+    if (
+      error.response?.status === 401 &&
+      !original._retry &&
+      !original.url?.includes('/auth/refresh') &&
+      !original.url?.includes('/auth/login')
+    ) {
+      original._retry = true;
+
+      if (isRefreshing) {
+        // Queue this request until the in-flight refresh completes
+        return new Promise((resolve, reject) => {
+          refreshQueue.push({ resolve, reject });
+        }).then(() => api(original)).catch((e) => Promise.reject(e));
+      }
+
+      isRefreshing = true;
+      try {
+        await api.post('/auth/refresh');
+        refreshQueue.forEach(({ resolve }) => resolve());
+        refreshQueue = [];
+        return api(original);
+      } catch (refreshErr) {
+        refreshQueue.forEach(({ reject }) => reject(refreshErr));
+        refreshQueue = [];
+        return Promise.reject(refreshErr);
+      } finally {
+        isRefreshing = false;
+      }
+    }
+
+    return Promise.reject(error);
+  }
+);
+
 // ── Auth ──────────────────────────────────────────────────────────────────────
 
 export const register = (email, displayName, password) =>
@@ -19,6 +64,12 @@ export const logout = () =>
 
 export const getMe = () =>
   api.get('/auth/me').then((r) => r.data);
+
+export const forgotPassword = (email) =>
+  api.post('/auth/forgot-password', { email }).then((r) => r.data);
+
+export const resetPassword = (token, password) =>
+  api.post('/auth/reset-password', { token, password }).then((r) => r.data);
 
 // ── Chats ─────────────────────────────────────────────────────────────────────
 

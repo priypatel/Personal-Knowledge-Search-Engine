@@ -1,5 +1,12 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import { getMe, login as apiLogin, logout as apiLogout, register as apiRegister } from '../services/api.js';
+import {
+  getMe,
+  login as apiLogin,
+  logout as apiLogout,
+  register as apiRegister,
+  forgotPassword as apiForgotPassword,
+  resetPassword as apiResetPassword,
+} from '../services/api.js';
 
 const AuthContext = createContext(null);
 
@@ -32,8 +39,16 @@ export function AuthProvider({ children }) {
     setUser(null);
   }
 
+  async function forgotPassword(email) {
+    return apiForgotPassword(email);
+  }
+
+  async function resetPassword(token, password) {
+    return apiResetPassword(token, password);
+  }
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, forgotPassword, resetPassword }}>
       {children}
     </AuthContext.Provider>
   );
