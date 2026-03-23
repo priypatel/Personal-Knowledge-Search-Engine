@@ -16,7 +16,7 @@ export default function Suggestions({ documentId, onSuggestionClick }) {
   return (
     <div
       data-testid="suggestions-container"
-      style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}
+      className="flex flex-col md:flex-row flex-wrap gap-2 justify-center"
     >
       {suggestions.map((s) => (
         <button
@@ -24,18 +24,7 @@ export default function Suggestions({ documentId, onSuggestionClick }) {
           data-testid="suggestion-pill"
           type="button"
           onClick={() => onSuggestionClick(s.question)}
-          style={{
-            border: '0.5px solid var(--border-default)',
-            borderRadius: 20,
-            padding: '6px 14px',
-            fontSize: 12,
-            color: 'var(--text-secondary)',
-            background: 'none',
-            cursor: 'pointer',
-            transition: 'background 150ms',
-          }}
-          onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-secondary)')}
-          onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
+          className="border border-border-default rounded-[20px] px-[14px] py-[6px] text-xs text-muted bg-transparent cursor-pointer hover:bg-muted transition-colors duration-150 whitespace-nowrap"
         >
           {s.question}
         </button>

@@ -3,6 +3,9 @@ import Sidebar from './Sidebar.jsx';
 
 jest.mock('lucide-react', () => ({
   Plus: () => <svg data-testid="plus-icon" />,
+  LogOut: () => <svg data-testid="logout-icon" />,
+  Search: () => <svg data-testid="search-icon" />,
+  Pencil: () => <svg data-testid="pencil-icon" />,
 }));
 
 jest.mock('../shared/Badge.jsx', () => ({
@@ -10,6 +13,9 @@ jest.mock('../shared/Badge.jsx', () => ({
   default: ({ type, children }) => (
     <span data-testid="file-badge" data-type={type}>{children}</span>
   ),
+}));
+jest.mock('../../services/api.js', () => ({
+  searchChats: jest.fn().mockResolvedValue([]),
 }));
 
 const mockOnChatSelect = jest.fn();
@@ -68,7 +74,7 @@ describe('Sidebar', () => {
         onNewChat={mockOnNewChat}
       />
     );
-    expect(screen.getByText(/No documents uploaded yet/i)).toBeInTheDocument();
+    expect(screen.getByText(/Upload your first document to get started/i)).toBeInTheDocument();
   });
 
   test('renders chat items in correct date group (TODAY)', () => {
@@ -146,7 +152,29 @@ describe('Sidebar', () => {
     expect(badges[2]).toHaveTextContent('DOCX');
   });
 
-  test('returns null when isOpen is false', () => {
+  test('renders user profile and logout button when user provided', () => {
+    const mockLogout = jest.fn();
+    render(
+      <Sidebar
+        chats={[]}
+        documents={[]}
+        onChatSelect={mockOnChatSelect}
+        onNewChat={mockOnNewChat}
+        user={{ id: 1, displayName: 'Priy Patel', email: 'priy@test.com' }}
+        onLogout={mockLogout}
+      />
+    );
+    expect(screen.getByText('Priy Patel')).toBeInTheDocument();
+    expect(screen.getByText('priy@test.com')).toBeInTheDocument();
+    // Opens confirmation dialog
+    fireEvent.click(screen.getByTestId('logout-button'));
+    expect(screen.getByTestId('logout-confirm-overlay')).toBeInTheDocument();
+    // Confirming calls onLogout
+    fireEvent.click(screen.getByTestId('logout-confirm'));
+    expect(mockLogout).toHaveBeenCalledTimes(1);
+  });
+
+  test('sidebar is hidden via CSS transform when isOpen is false', () => {
     render(
       <Sidebar
         chats={sampleChats}
@@ -156,6 +184,8 @@ describe('Sidebar', () => {
         isOpen={false}
       />
     );
-    expect(screen.queryByTestId('sidebar')).not.toBeInTheDocument();
+    const sidebar = screen.getByTestId('sidebar');
+    expect(sidebar).toBeInTheDocument();
+    expect(sidebar.className).toContain('-translate-x-full');
   });
 });
