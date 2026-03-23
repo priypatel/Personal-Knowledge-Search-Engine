@@ -55,6 +55,24 @@ CREATE TABLE IF NOT EXISTS chat_messages (
   created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
+-- ── Refresh Tokens ────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS refresh_tokens (
+  id         SERIAL PRIMARY KEY,
+  user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token_hash VARCHAR(255) NOT NULL UNIQUE,
+  expires_at TIMESTAMP NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+-- ── Password Reset Tokens ──────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+  id         SERIAL PRIMARY KEY,
+  user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token_hash VARCHAR(255) NOT NULL UNIQUE,
+  expires_at TIMESTAMP NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
 -- ── Indexes ───────────────────────────────────────────────────────────────────
 -- Note: ivfflat index requires >= lists rows to work correctly.
 -- Add back in production: CREATE INDEX ON document_chunks USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
@@ -63,4 +81,6 @@ CREATE INDEX IF NOT EXISTS idx_chunks_document_id     ON document_chunks(documen
 CREATE INDEX IF NOT EXISTS idx_suggestions_document_id ON suggestions(document_id);
 CREATE INDEX IF NOT EXISTS idx_chats_user_id           ON chats(user_id);
 CREATE INDEX IF NOT EXISTS idx_messages_chat_id        ON chat_messages(chat_id);
-CREATE INDEX IF NOT EXISTS idx_documents_user_id       ON documents(user_id);
+CREATE INDEX IF NOT EXISTS idx_documents_user_id        ON documents(user_id);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user_id   ON refresh_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_reset_tokens_user_id     ON password_reset_tokens(user_id);

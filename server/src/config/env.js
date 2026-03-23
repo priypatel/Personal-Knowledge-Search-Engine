@@ -2,7 +2,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 // Always required
-const required = ['DATABASE_URL', 'PORT', 'JWT_SECRET'];
+const required = ['DATABASE_URL', 'PORT', 'JWT_SECRET', 'JWT_REFRESH_SECRET'];
 for (const key of required) {
   if (!process.env[key]) {
     throw new Error(`Missing required environment variable: ${key}`);
@@ -13,17 +13,19 @@ for (const key of required) {
 const llmKeys = ['GROQ_API_KEY', 'DEEPSEEK_API_KEY', 'GEMINI_API_KEY'];
 const hasLLM = llmKeys.some((k) => Boolean(process.env[k]));
 if (!hasLLM) {
-  throw new Error(
-    `At least one LLM API key is required: ${llmKeys.join(' | ')}`
-  );
+  throw new Error(`At least one LLM API key is required: ${llmKeys.join(' | ')}`);
 }
 
-export const DATABASE_URL = process.env.DATABASE_URL;
-export const PORT = process.env.PORT;
-export const NODE_ENV = process.env.NODE_ENV || 'development';
-export const JWT_SECRET = process.env.JWT_SECRET;
+export const DATABASE_URL       = process.env.DATABASE_URL;
+export const PORT               = process.env.PORT;
+export const NODE_ENV           = process.env.NODE_ENV || 'development';
+export const JWT_SECRET         = process.env.JWT_SECRET;
+export const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
+export const CLIENT_URL         = process.env.CLIENT_URL || 'http://localhost:5173';
+export const RESEND_API_KEY     = process.env.RESEND_API_KEY || null;
+export const FROM_EMAIL         = process.env.FROM_EMAIL || 'onboarding@resend.dev';
 
-// LLM provider keys (any combination is valid — unused ones are null)
-export const GROQ_API_KEY = process.env.GROQ_API_KEY || null;
+// LLM provider keys
+export const GROQ_API_KEY     = process.env.GROQ_API_KEY     || null;
 export const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY || null;
-export const GEMINI_API_KEY = process.env.GEMINI_API_KEY || null;
+export const GEMINI_API_KEY   = process.env.GEMINI_API_KEY   || null;
