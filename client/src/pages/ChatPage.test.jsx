@@ -1,5 +1,10 @@
 import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import ChatPage from './ChatPage.jsx';
+
+function renderWithRouter(ui) {
+  return render(<MemoryRouter>{ui}</MemoryRouter>);
+}
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 
@@ -71,23 +76,23 @@ beforeEach(() => {
 
 describe('ChatPage', () => {
   test('renders without crashing', async () => {
-    render(<ChatPage />);
+    renderWithRouter(<ChatPage />);
     await waitFor(() => expect(screen.getByTestId('chat-page')).toBeInTheDocument());
   });
 
   test('renders Sidebar component', async () => {
-    render(<ChatPage />);
+    renderWithRouter(<ChatPage />);
     await waitFor(() => expect(screen.getByTestId('sidebar')).toBeInTheDocument());
   });
 
   test('renders Chat component', async () => {
-    render(<ChatPage />);
+    renderWithRouter(<ChatPage />);
     await waitFor(() => expect(screen.getByTestId('message-input')).toBeInTheDocument());
   });
 
   test('upload success creates a new chat', async () => {
     const { createChat } = require('../services/api.js');
-    render(<ChatPage />);
+    renderWithRouter(<ChatPage />);
     await act(async () => {
       fireEvent.click(screen.getByTestId('upload-success-btn'));
     });
@@ -95,7 +100,7 @@ describe('ChatPage', () => {
   });
 
   test('Ctrl+N switches to new-chat mode (no API call)', async () => {
-    render(<ChatPage />);
+    renderWithRouter(<ChatPage />);
     await act(async () => {
       fireEvent.keyDown(document, { key: 'n', ctrlKey: true });
     });
@@ -104,7 +109,7 @@ describe('ChatPage', () => {
   });
 
   test('/ key does not throw and input remains in DOM', async () => {
-    render(<ChatPage />);
+    renderWithRouter(<ChatPage />);
     const input = await screen.findByTestId('message-input');
     act(() => {
       fireEvent.keyDown(document, { key: '/' });
@@ -113,7 +118,7 @@ describe('ChatPage', () => {
   });
 
   test('Toast appears on upload error', async () => {
-    render(<ChatPage />);
+    renderWithRouter(<ChatPage />);
     await waitFor(() => screen.getByTestId('upload-error-btn'));
     fireEvent.click(screen.getByTestId('upload-error-btn'));
     expect(screen.getByTestId('toast')).toBeInTheDocument();
@@ -122,7 +127,7 @@ describe('ChatPage', () => {
 
   test('Toast auto-dismisses after 5 seconds', async () => {
     jest.useFakeTimers();
-    render(<ChatPage />);
+    renderWithRouter(<ChatPage />);
     await act(async () => {});
 
     fireEvent.click(screen.getByTestId('upload-error-btn'));
@@ -134,7 +139,7 @@ describe('ChatPage', () => {
   });
 
   test('Toast dismisses on × click', async () => {
-    render(<ChatPage />);
+    renderWithRouter(<ChatPage />);
     await act(async () => {});
     fireEvent.click(screen.getByTestId('upload-error-btn'));
     fireEvent.click(screen.getByTestId('toast-dismiss'));

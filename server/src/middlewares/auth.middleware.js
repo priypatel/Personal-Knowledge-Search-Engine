@@ -31,3 +31,28 @@ export async function requireAuth(req, res, next) {
     return res.status(401).json({ error: 'Invalid or expired session. Please log in again.' });
   }
 }
+
+/**
+ * Like requireAuth but never blocks — sets req.user to null if no valid session.
+ * Use for routes that guests can access with limited functionality.
+ */
+export async function optionalAuth(req, res, next) {
+  const token = req.cookies?.token;
+  if (!token) {
+    req.user = null;
+    return next();
+  }
+  try {
+    const payload = jwt.verify(token, JWT_SECRET);
+    const result = await query(
+      'SELECT id, email, display_name FROM users WHERE id = $1',
+      [payload.userId]
+    );
+    req.user = result.rows[0]
+      ? { id: result.rows[0].id, email: result.rows[0].email, displayName: result.rows[0].display_name }
+      : null;
+  } catch {
+    req.user = null;
+  }
+  next();
+}

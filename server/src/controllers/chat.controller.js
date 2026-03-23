@@ -47,6 +47,7 @@ export async function patchChat(req, res) {
 /**
  * POST /api/chat
  * Body: { query, documentId?, chatId? }
+ * Works for both authenticated users (saves to DB) and guests (no DB save).
  */
 export async function sendMessage(req, res, next) {
   const { query, documentId, chatId } = req.body;
@@ -57,13 +58,15 @@ export async function sendMessage(req, res, next) {
 
   const trimmedQuery = query.trim();
   const scopedDocumentId = documentId ? Number(documentId) : null;
+  // Guest chat IDs are strings like "g-1234567890" — Number() gives NaN which is falsy
   const numericChatId = chatId ? Number(chatId) : null;
+  const canSaveToDb = !!(numericChatId && req.user);
 
   const queryVector = await embeddingService.generateEmbedding(trimmedQuery);
   const chunks = await searchService.similaritySearch(queryVector, scopedDocumentId);
 
   if (chunks.length === 0) {
-    if (numericChatId) {
+    if (canSaveToDb) {
       const msgCount = await chatRepo.countMessages(numericChatId);
       await chatRepo.saveMessage(numericChatId, 'user', trimmedQuery, null);
       await chatRepo.saveMessage(numericChatId, 'assistant', 'No relevant data found in your documents.', null);
@@ -91,7 +94,7 @@ export async function sendMessage(req, res, next) {
       { role: 'user', content: trimmedQuery },
     ]);
 
-    if (numericChatId) {
+    if (canSaveToDb) {
       const msgCount = await chatRepo.countMessages(numericChatId);
       await chatRepo.saveMessage(numericChatId, 'user', trimmedQuery, null);
       await chatRepo.saveMessage(numericChatId, 'assistant', content, chunks);

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Plus, LogOut, Search, Pencil } from 'lucide-react';
 import Badge from '../shared/Badge.jsx';
-import { searchChats, updateChatTitle } from '../../services/api.js';
+import { searchChats } from '../../services/api.js';
 
 function groupChatsByDate(chats) {
   const now = new Date();
@@ -53,6 +53,9 @@ export default function Sidebar({
   onLogout,
   loading = false,
   isOpen = false,
+  isGuest = false,
+  guestChatsUsed = 0,
+  onSignIn,
 }) {
   // Delay transition activation to prevent flash on first render
   const [ready, setReady] = useState(false);
@@ -80,6 +83,12 @@ export default function Sidebar({
       setSearchLoading(false);
       return;
     }
+    if (isGuest) {
+      // Client-side filter for guests (no API access needed)
+      const ql = q.toLowerCase();
+      setSearchResults(chats.filter((c) => c.title.toLowerCase().includes(ql)));
+      return;
+    }
     setSearchLoading(true);
     debounceRef.current = setTimeout(() => {
       searchChats(q)
@@ -88,7 +97,7 @@ export default function Sidebar({
         .finally(() => setSearchLoading(false));
     }, 300);
     return () => clearTimeout(debounceRef.current);
-  }, [searchQuery]);
+  }, [searchQuery, isGuest, chats]);
 
   // Auto-focus rename input when entering rename mode
   useEffect(() => {
@@ -105,12 +114,7 @@ export default function Sidebar({
     const title = renameValue.trim();
     setRenamingChatId(null);
     if (!title) return;
-    try {
-      await updateChatTitle(chatId, title);
-      onRenameChat?.(chatId, title);
-    } catch {
-      // silently ignore — title reverts in UI on next load
-    }
+    onRenameChat?.(chatId, title);
   }
 
   function handleRenameKeyDown(e, chatId) {
@@ -265,6 +269,24 @@ export default function Sidebar({
           )}
         </div>
       </div>
+
+      {/* Guest footer — sign-in CTA */}
+      {isGuest && (
+        <>
+          <div className="h-px bg-border-default shrink-0" />
+          <div className="shrink-0 py-3 px-3 flex flex-col gap-2.5">
+            <p className="text-xs text-faint m-0">
+              {Math.max(0, 3 - guestChatsUsed)} of 3 free chats remaining
+            </p>
+            <button
+              onClick={onSignIn}
+              className="w-full bg-primary text-white text-[13px] font-medium rounded-md py-2 hover:opacity-90 transition-opacity cursor-pointer"
+            >
+              Sign in for unlimited access
+            </button>
+          </div>
+        </>
+      )}
 
       {/* User profile footer */}
       {user && (

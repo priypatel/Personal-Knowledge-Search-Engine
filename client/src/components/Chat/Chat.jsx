@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Search, SendHorizontal, Paperclip, Copy, Check } from 'lucide-react';
-import { sendChat, uploadDocument, createChat } from '../../services/api.js';
+import { sendChat, uploadDocument, createChat as apiCreateChat } from '../../services/api.js';
 import Suggestions from '../Suggestions/Suggestions.jsx';
 import Upload from '../Upload/Upload.jsx';
 
@@ -217,6 +217,7 @@ export default function Chat({
   onUploadSuccess,
   onUploadError,
   documentName = null,
+  createChatFn = apiCreateChat,
 }) {
   const [messages, setMessages] = useState(initialMessages);
   const [inputValue, setInputValue] = useState('');
@@ -267,7 +268,7 @@ export default function Chat({
       // If no chat session exists yet, create one now (first message in a new chat)
       let resolvedChatId = chatId ?? null;
       if (!resolvedChatId) {
-        const newChat = await createChat({ title: query.slice(0, 50) });
+        const newChat = await createChatFn({ title: query.slice(0, 50) });
         resolvedChatId = newChat.id;
         onChatCreated?.(newChat);
       }
@@ -280,6 +281,13 @@ export default function Chat({
       setMessages(resolved);
       onMessageSent?.(resolved, resolvedChatId);
     } catch (err) {
+      if (err?.message === 'GUEST_LIMIT') {
+        // Guest limit reached — modal already shown by ChatPage; revert optimistic messages
+        setMessages(messages);
+        setInputValue(query);
+        setIsLoading(false);
+        return;
+      }
       const content = !err.response
         ? 'Connection issue. Please try again.'
         : 'Something went wrong. Please try again.';

@@ -1,15 +1,16 @@
 import { Router } from 'express';
 import { sendMessage, getChats, searchChats, createChat, patchChat } from '../controllers/chat.controller.js';
-import { requireAuth } from '../middlewares/auth.middleware.js';
+import { requireAuth, optionalAuth } from '../middlewares/auth.middleware.js';
 
 const router = Router();
 
-router.use(requireAuth);
+// Chat management routes — require authentication
+router.get('/chats', requireAuth, getChats);
+router.get('/chats/search', requireAuth, searchChats);
+router.post('/chats', requireAuth, createChat);
+router.patch('/chats/:id', requireAuth, patchChat);
 
-router.get('/chats', getChats);
-router.get('/chats/search', searchChats);
-router.post('/chats', createChat);
-router.patch('/chats/:id', patchChat);
-router.post('/chat', sendMessage);
+// Message sending — guests allowed (no DB save when unauthenticated)
+router.post('/chat', optionalAuth, sendMessage);
 
 export default router;

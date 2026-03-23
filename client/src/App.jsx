@@ -5,8 +5,8 @@ import ChatPage from './pages/ChatPage.jsx';
 import LoginPage from './pages/LoginPage.jsx';
 import RegisterPage from './pages/RegisterPage.jsx';
 
-function ProtectedRoute({ children }) {
-  const { user, loading } = useAuth();
+function AppRoute({ children }) {
+  const { loading } = useAuth();
   if (loading) {
     return (
       <div className="min-h-screen bg-surface flex items-center justify-center">
@@ -17,7 +17,6 @@ function ProtectedRoute({ children }) {
       </div>
     );
   }
-  if (!user) return <Navigate to="/login" replace />;
   return children;
 }
 
@@ -35,7 +34,7 @@ function App() {
         <Routes>
           <Route path="/login" element={<GuestRoute><LoginPage /></GuestRoute>} />
           <Route path="/register" element={<GuestRoute><RegisterPage /></GuestRoute>} />
-          <Route path="/" element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />
+          <Route path="/" element={<AppRoute><ChatPage /></AppRoute>} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>

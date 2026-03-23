@@ -1,27 +1,49 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Menu } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import Chat from '../components/Chat/Chat.jsx';
 import Sidebar from '../components/Sidebar/Sidebar.jsx';
 import Toast from '../components/shared/Toast.jsx';
+import GuestLimitModal, { GUEST_CHAT_LIMIT } from '../components/shared/GuestLimitModal.jsx';
 import { getChats, createChat as apiCreateChat, updateChatTitle } from '../services/api.js';
 import { useAuth } from '../contexts/AuthContext.jsx';
 
+// ─── Guest localStorage helpers ───────────────────────────────────────────────
+const GUEST_STORAGE_KEY = 'kb_guest_chats';
+
+function loadGuestChats() {
+  try {
+    return JSON.parse(localStorage.getItem(GUEST_STORAGE_KEY) || '[]');
+  } catch {
+    return [];
+  }
+}
+
+function saveGuestChats(chats) {
+  localStorage.setItem(GUEST_STORAGE_KEY, JSON.stringify(chats));
+}
+
+// ─── ChatPage ─────────────────────────────────────────────────────────────────
 export default function ChatPage() {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const isGuest = !user;
+
   const [chats, setChats] = useState([]);
   const [activeChatId, setActiveChatId] = useState(null);
-  // chatKey controls Chat remounting. Separate from activeChatId so that
+  // chatKey controls Chat remounting — separate from activeChatId so that
   // lazily assigning a real chatId (on first message) does NOT remount Chat.
   const [chatKey, setChatKey] = useState('default');
   const [toast, setToast] = useState(null);
   const [uploadedDocumentId, setUploadedDocumentId] = useState(null);
   const [chatsLoading, setChatsLoading] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showGuestLimitModal, setShowGuestLimitModal] = useState(false);
 
   const activeChat = chats.find((c) => c.id === activeChatId) ?? null;
   const effectiveDocumentId = uploadedDocumentId ?? activeChat?.documentId ?? null;
 
-  // Derive documents list from chats
+  // Derive documents list from chats (works for both auth and guest)
   const documents = useMemo(() => {
     const seen = new Set();
     const docs = [];
@@ -35,16 +57,43 @@ export default function ChatPage() {
     return docs;
   }, [chats]);
 
-  // Load chats from server on mount
+  // Load chats on mount
   useEffect(() => {
-    getChats()
-      .then(setChats)
-      .catch(() => setToast({ message: 'Failed to load chat history.', type: 'error' }))
-      .finally(() => setChatsLoading(false));
+    if (isGuest) {
+      setChats(loadGuestChats());
+      setChatsLoading(false);
+    } else {
+      getChats()
+        .then(setChats)
+        .catch(() => setToast({ message: 'Failed to load chat history.', type: 'error' }))
+        .finally(() => setChatsLoading(false));
+    }
+  }, [isGuest]);
+
+  // Guest createChat — stored in localStorage, enforces limit
+  const guestCreateChat = useCallback(async ({ title, documentId = null, documentName = null }) => {
+    const saved = loadGuestChats();
+    if (saved.length >= GUEST_CHAT_LIMIT) {
+      setShowGuestLimitModal(true);
+      throw new Error('GUEST_LIMIT');
+    }
+    const newChat = {
+      id: 'g-' + Date.now(),
+      title: title || 'New Chat',
+      messages: [],
+      createdAt: new Date().toISOString(),
+      documentId,
+      documentName,
+    };
+    const updated = [newChat, ...saved];
+    saveGuestChats(updated);
+    setChats(updated);
+    return newChat;
   }, []);
 
+  const createChatFn = isGuest ? guestCreateChat : apiCreateChat;
+
   const handleNewChat = useCallback(() => {
-    // Already in new-chat mode — do nothing (prevents duplicate blank entries)
     if (activeChatId === null && chatKey === 'default') return;
     setActiveChatId(null);
     setUploadedDocumentId(null);
@@ -55,15 +104,17 @@ export default function ChatPage() {
   // Called by Chat when it lazily creates a chat on the first message.
   // Does NOT change chatKey — Chat must NOT remount so the user sees the response.
   function handleChatCreated(chat) {
-    setChats((prev) => [chat, ...prev]);
+    if (!isGuest) {
+      // For auth users, add to list (guest's guestCreateChat already adds to list)
+      setChats((prev) => [chat, ...prev]);
+    }
     setActiveChatId(chat.id);
-    // chatKey stays the same — Chat keeps running, user sees the AI response
   }
 
   function handleChatSelect(chat) {
     setActiveChatId(chat.id);
     setUploadedDocumentId(null);
-    setChatKey(`chat-${chat.id}`); // remount Chat with the selected chat's messages
+    setChatKey(`chat-${chat.id}`);
     setMobileMenuOpen(false);
   }
 
@@ -71,17 +122,39 @@ export default function ChatPage() {
     const name = res?.name || `Document ${res?.documentId}`;
     setUploadedDocumentId(res.documentId);
     setMobileMenuOpen(false);
-    try {
-      const chat = await apiCreateChat({
+
+    if (isGuest) {
+      const saved = loadGuestChats();
+      if (saved.length >= GUEST_CHAT_LIMIT) {
+        setShowGuestLimitModal(true);
+        return;
+      }
+      const newChat = {
+        id: 'g-' + Date.now(),
         title: name,
+        messages: [],
+        createdAt: new Date().toISOString(),
         documentId: res.documentId,
         documentName: name,
-      });
-      setChats((prev) => [chat, ...prev]);
-      setActiveChatId(chat.id);
-      setChatKey(`chat-${chat.id}`);
-    } catch {
-      setToast({ message: 'Could not create chat session. Please try again.', type: 'error' });
+      };
+      const updated = [newChat, ...saved];
+      saveGuestChats(updated);
+      setChats(updated);
+      setActiveChatId(newChat.id);
+      setChatKey(`chat-${newChat.id}`);
+    } else {
+      try {
+        const chat = await apiCreateChat({
+          title: name,
+          documentId: res.documentId,
+          documentName: name,
+        });
+        setChats((prev) => [chat, ...prev]);
+        setActiveChatId(chat.id);
+        setChatKey(`chat-${chat.id}`);
+      } catch {
+        setToast({ message: 'Could not create chat session. Please try again.', type: 'error' });
+      }
     }
   }
 
@@ -89,8 +162,16 @@ export default function ChatPage() {
     setToast({ message: message || 'Upload failed. Please try again.', type: 'error' });
   }
 
+  // Rename — Sidebar calls this, ChatPage handles persistence
   function handleRenameChat(chatId, title) {
-    setChats((prev) => prev.map((c) => (c.id === chatId ? { ...c, title } : c)));
+    if (isGuest) {
+      const updated = loadGuestChats().map((c) => (c.id === chatId ? { ...c, title } : c));
+      saveGuestChats(updated);
+      setChats(updated);
+    } else {
+      setChats((prev) => prev.map((c) => (c.id === chatId ? { ...c, title } : c)));
+      updateChatTitle(chatId, title).catch(() => {});
+    }
   }
 
   // Chat passes the resolved chatId (may differ from activeChatId during lazy creation)
@@ -99,10 +180,19 @@ export default function ChatPage() {
     if (!id) return;
     const firstUserMsg = messages.find((m) => m.role === 'user');
     const title = firstUserMsg ? firstUserMsg.content.slice(0, 50) : 'New Chat';
-    setChats((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, title, messages } : c))
-    );
-    updateChatTitle(id, title).catch(() => {});
+
+    if (isGuest) {
+      const updated = loadGuestChats().map((c) =>
+        c.id === id ? { ...c, title, messages } : c
+      );
+      saveGuestChats(updated);
+      setChats(updated);
+    } else {
+      setChats((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, title, messages } : c))
+      );
+      updateChatTitle(id, title).catch(() => {});
+    }
   }
 
   // Global keyboard shortcuts
@@ -142,6 +232,10 @@ export default function ChatPage() {
         />
       )}
 
+      {showGuestLimitModal && (
+        <GuestLimitModal onClose={() => setShowGuestLimitModal(false)} />
+      )}
+
       {mobileMenuOpen && (
         <div
           className="fixed inset-0 bg-black/30 z-30 lg:hidden"
@@ -168,6 +262,9 @@ export default function ChatPage() {
         onLogout={logout}
         loading={chatsLoading}
         isOpen={mobileMenuOpen}
+        isGuest={isGuest}
+        guestChatsUsed={chats.length}
+        onSignIn={() => navigate('/login')}
       />
 
       <main className="flex-1 flex flex-col overflow-hidden min-w-0 bg-[#f5f4ed]">
@@ -181,6 +278,7 @@ export default function ChatPage() {
           onUploadSuccess={handleUploadSuccess}
           onUploadError={handleUploadError}
           documentName={activeChat?.documentName ?? null}
+          createChatFn={createChatFn}
         />
       </main>
     </div>

@@ -4,7 +4,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import errorMiddleware from './middlewares/error.middleware.js';
-import { requireAuth } from './middlewares/auth.middleware.js';
+import { optionalAuth } from './middlewares/auth.middleware.js';
 import authRoutes from './routes/auth.routes.js';
 import uploadRoutes from './routes/upload.routes.js';
 import chatRoutes from './routes/chat.routes.js';
@@ -29,10 +29,12 @@ app.get('/health', (req, res) => res.json({ status: 'ok' }));
 // Auth routes (public — register, login; protected — logout, me)
 app.use('/api', authRoutes);
 
-// Protected routes
-app.use('/api', requireAuth, uploadRoutes);
-app.use('/api', chatRoutes);          // requireAuth applied inside chat router
-app.use('/api', requireAuth, suggestionRoutes);
+// Upload: guests can upload (document stored with null userId)
+app.use('/api', optionalAuth, uploadRoutes);
+// Chat: requireAuth applied per-route inside chat router
+app.use('/api', chatRoutes);
+// Suggestions: no user context needed
+app.use('/api', optionalAuth, suggestionRoutes);
 
 app.use(errorMiddleware);
 
